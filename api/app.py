@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 
-from src.pipeline.scanner import DocumentScanner
+from src.pipeline.clean_scanner import CleanDocumentScanner
 from src.utils.export import export_to_pdf
 
 # Initialize Flask app
@@ -42,13 +42,11 @@ CORS(app)  # Enable CORS for mobile apps
 _scanner = None
 
 
-def get_scanner() -> DocumentScanner:
+def get_scanner() -> CleanDocumentScanner:
     """Get or create scanner instance."""
     global _scanner
     if _scanner is None:
-        model_path = os.environ.get('MODEL_PATH', None)
-        device = os.environ.get('DEVICE', 'auto')
-        _scanner = DocumentScanner(model_path=model_path, device=device)
+        _scanner = CleanDocumentScanner()
     return _scanner
 
 
@@ -165,19 +163,20 @@ def scan_document():
                 'error': 'Failed to decode image'
             }), 400
         
-        # Get options
+        # Get options for CleanDocumentScanner
         options = data.get('options', {})
-        remove_shadows = options.get('remove_shadows', True)
+        # Mode: 'color' (default), 'grayscale', 'document' (B&W)
+        mode = options.get('mode', 'color')
         enhance = options.get('enhance', True)
         output_format = options.get('output_format', 'jpeg')
         
-        # Process
+        # Process with clean scanner
         scanner = get_scanner()
         start_time = time.time()
         
         result = scanner.scan(
             image,
-            remove_shadows=remove_shadows,
+            mode=mode,
             enhance=enhance
         )
         
@@ -191,7 +190,7 @@ def scan_document():
         }
         
         if result['corners'] is not None:
-            response['corners'] = result['corners'].tolist()
+            response['corners'] = result['corners']
         else:
             response['corners'] = None
         
@@ -199,7 +198,7 @@ def scan_document():
             response['scan'] = encode_image_base64(result['scan'], output_format)
         else:
             response['scan'] = None
-            response['message'] = 'Document not detected'
+            response['message'] = result.get('message', 'Document not detected')
         
         return jsonify(response)
     
@@ -370,9 +369,10 @@ def export_pdf():
         # Get options
         options = data.get('options', {})
         
-        # Create PDF in memory
-        output_buffer = io.BytesIO()
-        temp_path = '/tmp/scan_output.pdf'
+        # Create PDF in memory using tempfile for cross-platform support
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
+            temp_path = tmp.name
         
         export_to_pdf(
             images,
@@ -385,6 +385,10 @@ def export_pdf():
         with open(temp_path, 'rb') as f:
             pdf_data = base64.b64encode(f.read()).decode('utf-8')
         
+        # Clean up temp file
+        import os
+        os.unlink(temp_path)
+        
         return jsonify({
             'success': True,
             'pdf': f"data:application/pdf;base64,{pdf_data}",
@@ -392,6 +396,9 @@ def export_pdf():
         })
     
     except Exception as e:
+        import traceback
+        print(f"[PDF EXPORT ERROR] {str(e)}")
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)

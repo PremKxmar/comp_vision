@@ -12,8 +12,9 @@
  *   GET  /api/info     - API capabilities
  */
 
-// Configure the API base URL - Using production Render deployment
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://scanpro-api.onrender.com';
+// Configure the API base URL - Using local backend on same WiFi
+// Change this IP to your laptop's local IP address
+const API_BASE_URL = 'http://10.12.77.169:5000';
 
 export interface ScanOptions {
   remove_shadows?: boolean;
@@ -106,13 +107,34 @@ export function base64ToBlob(base64: string): Blob {
 export function downloadBase64(base64: string, filename: string): void {
   const blob = base64ToBlob(base64);
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+
+  // Detect iOS
+  // @ts-ignore
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  if (isIOS) {
+    // On iOS, open in new window to allow "Save to Files" via share sheet
+    // We use a timeout to ensure the UI has updated before opening
+    setTimeout(() => {
+      const win = window.open(url, '_blank');
+      if (!win) {
+        // If popup blocked, try navigating current window
+        window.location.href = url;
+      }
+    }, 100);
+
+    // Clean up after a delay (iOS needs time to load it)
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } else {
+    // Standard download for Desktop/Android
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 }
 
 // =============================================================================
@@ -152,22 +174,49 @@ export async function scanDocument(
   imageBase64: string,
   options: ScanOptions = {}
 ): Promise<ScanResult> {
-  const response = await fetch(`${API_BASE_URL}/api/scan`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      image: imageBase64,
-      options: {
-        remove_shadows: options.remove_shadows ?? true,
-        enhance: options.enhance ?? true,
-        output_format: options.output_format ?? 'jpeg'
-      }
-    })
-  });
+  // Create abort controller for timeout (2 minute timeout for processing)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120000);
 
-  return response.json();
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/scan`, {
+      method: 'POST',
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        image: imageBase64,
+        options: {
+          remove_shadows: options.remove_shadows ?? true,
+          enhance: options.enhance ?? true,
+          output_format: options.output_format ?? 'jpeg'
+        }
+      }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `Server error: ${response.status} ${response.statusText}`
+      };
+    }
+
+    return response.json();
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      return {
+        success: false,
+        error: 'Request timed out. The server may be starting up - please try again.'
+      };
+    }
+    throw error;
+  }
 }
 
 /**
@@ -235,21 +284,57 @@ export async function exportToPdf(
   images: string[],
   options: { page_size?: 'A4' | 'letter'; add_ocr?: boolean } = {}
 ): Promise<ExportPdfResult> {
-  const response = await fetch(`${API_BASE_URL}/api/export-pdf`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      images,
-      options: {
-        page_size: options.page_size ?? 'A4',
-        add_ocr: options.add_ocr ?? false
-      }
-    })
-  });
+  console.log('[API] Exporting to PDF, images:', images.length);
 
-  return response.json();
+  // Create abort controller for timeout (2 minute timeout for processing)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120000);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/export-pdf`, {
+      method: 'POST',
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        images,
+        options: {
+          page_size: options.page_size ?? 'A4',
+          add_ocr: options.add_ocr ?? false
+        }
+      }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.error('[API] PDF export HTTP error:', response.status);
+      return {
+        success: false,
+        error: `Server error: ${response.status} ${response.statusText}`
+      };
+    }
+
+    const result = await response.json();
+    console.log('[API] PDF export result:', result.success);
+    return result;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    console.error('[API] PDF export error:', error);
+    if (error.name === 'AbortError') {
+      return {
+        success: false,
+        error: 'Request timed out'
+      };
+    }
+    return {
+      success: false,
+      error: error.message || 'Unknown error'
+    };
+  }
 }
 
 // =============================================================================

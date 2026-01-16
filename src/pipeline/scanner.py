@@ -277,25 +277,18 @@ class DocumentScanner:
     def _enhance_scan(self, image: np.ndarray) -> np.ndarray:
         """
         Enhance scanned document for better readability.
-        Uses gentle enhancement to avoid making the image grainy.
+        Uses VERY gentle enhancement to preserve image quality.
         """
-        # Step 1: Denoise FIRST to reduce grain
-        # fastNlMeansDenoisingColored(src, dst, h, hColor, templateWindowSize, searchWindowSize)
-        denoised = cv2.fastNlMeansDenoisingColored(image, None, 6, 6, 7, 21)
-        
-        # Step 2: Very gentle CLAHE (reduced from 2.0 to 1.0)
-        lab = cv2.cvtColor(denoised, cv2.COLOR_BGR2LAB)
+        # Very gentle brightness/contrast adjustment only
+        lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
         l, a, b = cv2.split(lab)
         
-        clahe = cv2.createCLAHE(clipLimit=1.0, tileGridSize=(8, 8))
+        # Very gentle CLAHE - just slight contrast boost
+        clahe = cv2.createCLAHE(clipLimit=1.0, tileGridSize=(16, 16))
         l = clahe.apply(l)
         
         lab = cv2.merge([l, a, b])
         enhanced = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-        
-        # Step 3: Gentle unsharp mask instead of aggressive kernel
-        blurred = cv2.GaussianBlur(enhanced, (0, 0), sigmaX=1.5)
-        enhanced = cv2.addWeighted(enhanced, 1.3, blurred, -0.3, 0)
         
         return enhanced
     

@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CV Complete Guide - Shadow-Robust Document Scanner</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #06b6d4;
+            --accent: #f59e0b;
+            --success: #10b981;
+            --danger: #ef4444;
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --bg-code: #0d1117;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --border: #334155;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.7;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #1e1b4b 100%);
+            padding: 60px 0;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 16px;
+        }
+
+        .hero p {
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 16px;
+            background: rgba(99, 102, 241, 0.2);
+            border: 1px solid var(--primary);
+            border-radius: 20px;
+            font-size: 0.875rem;
+            color: var(--primary);
+            margin-bottom: 24px;
+        }
+
+        /* Nav */
+        .nav {
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 16px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        /* Sections */
+        .section {
+            padding: 60px 0;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .section-header h2 {
+            font-size: 2rem;
+            margin-bottom: 12px;
+        }
+
+        .section-header p {
+            color: var(--text-secondary);
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 28px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        .card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .card-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+
+        /* Code */
+        .code-block {
+            background: var(--bg-code);
+            border-radius: 10px;
+            padding: 16px;
+            margin: 16px 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+        }
+
+        .code-block .comment {
+            color: #6a737d;
+        }
+
+        .code-block .keyword {
+            color: #ff7b72;
+        }
+
+        .code-block .function {
+            color: #d2a8ff;
+        }
+
+        .code-block .string {
+            color: #a5d6ff;
+        }
+
+        .code-block .number {
+            color: #79c0ff;
+        }
+
+        /* Formula */
+        .formula-box {
+            background: var(--bg-code);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 16px 0;
+            border-left: 4px solid var(--primary);
+        }
+
+        .formula-title {
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .formula {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.1rem;
+            text-align: center;
+            padding: 10px;
+        }
+
+        /* Matrix */
+        .matrix {
+            display: inline-grid;
+            gap: 4px;
+            padding: 12px;
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 8px;
+            border: 2px solid var(--primary);
+        }
+
+        .matrix-3x3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .matrix span {
+            padding: 6px 10px;
+            text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        .matrix-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+
+        /* Grid */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px;
+        }
+
+        /* Visual Box */
+        .visual-box {
+            background: var(--bg-code);
+            border-radius: 10px;
+            padding: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        /* Tags */
+        .tag {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            margin: 4px 2px;
+        }
+
+        .tag-primary {
+            background: rgba(99, 102, 241, 0.2);
+            color: var(--primary);
+        }
+
+        .tag-success {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .tag-warning {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--accent);
+        }
+
+        /* Pipeline */
+        .pipeline {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+            margin: 30px 0;
+        }
+
+        .pipeline-step {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+            min-width: 120px;
+            border: 1px solid var(--border);
+            position: relative;
+        }
+
+        .pipeline-step::after {
+            content: '→';
+            position: absolute;
+            right: -18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--primary);
+            font-size: 1.2rem;
+        }
+
+        .pipeline-step:last-child::after {
+            display: none;
+        }
+
+        .step-num {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        /* Highlight */
+        .highlight {
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .text-accent {
+            color: var(--accent);
+        }
+
+        .text-success {
+            color: var(--success);
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-card);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 16px 0;
+        }
+
+        th,
+        td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: rgba(99, 102, 241, 0.1);
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        /* Diagram */
+        .diagram {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 20px 0;
+            border: 1px solid var(--border);
+        }
+
+        .diagram-flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .diagram-box {
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+
+        .diagram-arrow {
+            color: var(--accent);
+            font-size: 1.3rem;
+        }
+
+        /* Tips */
+        .tip {
+            background: rgba(16, 185, 129, 0.1);
+            border-left: 4px solid var(--success);
+            padding: 16px;
+            border-radius: 0 8px 8px 0;
+            margin: 16px 0;
+        }
+
+        .tip-title {
+            color: var(--success);
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--bg-card);
+            padding: 30px 0;
+            text-align: center;
+            border-top: 1px solid var(--border);
+        }
+
+        footer p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 1.8rem;
+            }
+
+            .pipeline-step::after {
+                display: none;
+            }
+
+            .section {
+                padding: 40px 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Hero -->
+    <section class="hero">
+        <div class="container">
+            <span class="badge">📚 Complete Learning Guide</span>
+            <h1>Computer Vision Deep Dive</h1>
+            <p>A comprehensive guide explaining every CV technique in the Shadow-Robust Document Scanner - from basic
+                concepts to implementation</p>
+        </div>
+    </section>
+
+    <!-- Navigation -->
+    <nav class="nav">
+        <div class="container">
+            <div class="nav-links">
+                <a href="#pipeline">Pipeline</a>
+                <a href="#preprocessing">Preprocessing</a>
+                <a href="#shadow">Shadow Removal</a>
+                <a href="#edges">Edge Detection</a>
+                <a href="#morphology">Morphology</a>
+                <a href="#contours">Contours</a>
+                <a href="#homography">Homography</a>
+                <a href="#enhancement">Enhancement</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Pipeline Overview -->
+    <section id="pipeline" class="section">
+        <div class="container">
+            <div class="section-header">
+                <h2>🔄 The 6-Stage Pipeline</h2>
+                <p>How a photo becomes a scanner-quality document</p>
+            </div>
+            <div class="pipeline">
+                <div class="pipeline-step">
+                    <div class="step-num">1</div><strong>Preprocess</strong>
+                    <p style="font-size:0.75rem;color:var(--text-secondary)">Blur & Resize</p>
+                </div>
+                <div class="pipeline-step">
+                    <div class="step-num">2</div><strong>Shadow</strong>
+                    <p style="font-size:0.75rem;color:var(--text-secondary)">LAB Processing</p>
+                </div>
+                <div class="pipeline-step">
+                    <div class="step-num">3</div><strong>Edges</strong>
+                    <p style="font-size:0.75rem;color:var(--text-secondary)">Canny/Sobel</p>
+                </div>
+                <div class="pipeline-step">
+                    <div class="step-num">4</div><strong>Morphology</strong>
+                    <p style="font-size:0.75rem;color:var(--text-secondary)">Clean Up</p>
+                </div>
+                <div class="pipeline-step">
+                    <div class="step-num">5</div><strong>Contours</strong>
+                    <p style="font-size:0.75rem;color:var(--text-secondary)">Find Corners</p>
+                </div>
+                <div class="pipeline-step">
+                    <div class="step-num">6</div><strong>Homography</strong>
+                    <p style="font-size:0.75rem;color:var(--text-secondary)">Flatten</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Preprocessing -->
+    <section id="preprocessing" class="section" style="background: rgba(99, 102, 241, 0.03);">
+        <div class="container">
+            <div class="section-header">
+                <h2>⚙️ Stage 1: Preprocessing</h2>
+                <p>Preparing the image for analysis</p>
+            </div>
+
+            <div class="card">
+                <h3><span class="card-icon"
+                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">📏</span> Image Resizing
+                </h3>
+                <p><strong>What it does:</strong> Reduces image dimensions for faster processing.</p>
+                <p style="margin-top:12px"><strong>Why we need it:</strong> A 12MP image (4000×3000 pixels) takes much
+                    longer to process. We resize to max 800px for speed.</p>
+                <div class="code-block">
+                    <span class="comment"># Resize while keeping aspect ratio</span>
+                    max_dim = <span class="number">800</span>
+                    scale = max_dim / max(height, width)
+                    small = cv2.resize(image, None, fx=scale, fy=scale)
+                </div>
+                <div class="tip">
+                    <div class="tip-title">💡 Key Point</div>
+                    We save the <code>scale</code> factor to convert detected corners back to original coordinates
+                    later.
+                </div>
+            </div>
+
+            <div class="card">
+                <h3><span class="card-icon"
+                        style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">🌫️</span> Gaussian Blur
+                </h3>
+                <p><strong>What it does:</strong> Smooths the image by averaging each pixel with its neighbors using
+                    weighted averages.</p>
+
+                <div class="formula-box">
+                    <div class="formula-title">The Gaussian Function</div>
+                    <div class="formula">G(x,y) = (1 / 2πσ²) × e<sup>-(x² + y²) / 2σ²</sup></div>
+                </div>
+
+                <p style="margin-top:16px"><strong>Why we need it:</strong></p>
+                <ul style="margin-left:20px; margin-top:8px; color: var(--text-secondary);">
+                    <li><strong>Removes noise</strong> - Camera sensors produce random noise that can be mistaken for
+                        edges</li>
+                    <li><strong>Prepares for edge detection</strong> - Canny requires pre-smoothing</li>
+                    <li><strong>Reduces false positives</strong> - Without blur, every tiny texture looks like an "edge"
+                    </li>
+                </ul>
+
+                <div class="matrix-container" style="margin-top:20px">
+                    <div>
+                        <p style="color: var(--accent); margin-bottom: 8px; text-align:center">5×5 Gaussian Kernel</p>
+                        <div class="matrix" style="grid-template-columns: repeat(5, 1fr);">
+                            <span>1</span><span>4</span><span>7</span><span>4</span><span>1</span>
+                            <span>4</span><span>16</span><span>26</span><span>16</span><span>4</span>
+                            <span>7</span><span>26</span><span
+                                style="color:var(--success)">41</span><span>26</span><span>7</span>
+                            <span>4</span><span>16</span><span>26</span><span>16</span><span>4</span>
+                            <span>1</span><span>4</span><span>7</span><span>4</span><span>1</span>
+                        </div>
+                        <p style="font-size:0.75rem; color:var(--text-secondary); text-align:center; margin-top:8px">
+                            Center pixel (41) has highest weight</p>
+                    </div>
+                </div>
+
+                <div class="code-block">
+                    <span class="comment"># Apply Gaussian blur with 5×5 kernel</span>
+                    blurred = cv2.GaussianBlur(image, (<span class="number">5</span>, <span class="number">5</span>),
+                    sigmaX=<span class="number">0</span>)
+                </div>
+            </div>
+
+            <div class="card">
+                <h3><span class="card-icon"
+                        style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">🎨</span> Color Space
+                    Conversion</h3>
+                <p><strong>What it does:</strong> Converts image from one color representation to another.</p>
+
+                <div class="grid-3" style="margin-top:20px">
+                    <div style="background:var(--bg-code); padding:16px; border-radius:10px;">
+                        <h4 style="color:var(--primary); margin-bottom:8px">BGR</h4>
+                        <p style="font-size:0.85rem; color:var(--text-secondary)">Blue-Green-Red. How OpenCV stores
+                            color images. Each pixel = 3 values (0-255).</p>
+                    </div>
+                    <div style="background:var(--bg-code); padding:16px; border-radius:10px;">
+                        <h4 style="color:var(--text-primary); margin-bottom:8px">Grayscale</h4>
+                        <p style="font-size:0.85rem; color:var(--text-secondary)">Single channel (0-255). Formula:
+                            0.299×R + 0.587×G + 0.114×B</p>
+                    </div>
+                    <div style="background:var(--bg-code); padding:16px; border-radius:10px;">
+                        <h4 style="color:var(--success); margin-bottom:8px">LAB</h4>
+                        <p style="font-size:0.85rem; color:var(--text-secondary)">L=Lightness, A=Green-Red,
+                            B=Blue-Yellow. <strong>Perfect for shadow removal!</strong></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Shadow Removal -->
+    <section id="shadow" class="section">
+        <div class="container">
+            <div class="section-header">
+                <h2>🌓 Stage 2: Shadow Removal</h2>
+                <p>Gradient-Domain Processing in LAB Color Space</p>
+            </div>
+
+            <div class="card">
+                <h3><span class="card-icon"
+                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">❓</span> Why LAB Color
+                    Space?</h3>
+                <p>In BGR, <strong>brightness is mixed into ALL three channels</strong>. You can't tell if a pixel is
+                    dark because of shadow or because it's a dark color.</p>
+
+                <div class="diagram" style="margin-top:20px">
+                    <p style="text-align:center; margin-bottom:16px"><strong>The Problem with BGR:</strong></p>
+                    <div class="visual-box" style="max-width:500px; margin:0 auto;">
+                        Dark red pixel: B=0, G=0, R=100
+
+                        Is it dark because:
+                        ❓ It's in a shadow? OR
+                        ❓ It's genuinely dark red?
+
+                        We can't tell in BGR!
+                    </div>
+                </div>
+
+                <div class="diagram" style="margin-top:20px">
+                    <p style="text-align:center; margin-bottom:16px"><strong>LAB Solution:</strong></p>
+                    <div class="grid-3">
+                        <div style="text-align:center; padding:16px; background:var(--bg-code); border-radius:8px;">
+                            <h4 style="color:var(--accent)">L Channel</h4>
+                            <p style="font-size:0.9rem">ONLY Brightness</p>
+                            <p style="font-size:0.75rem; color:var(--text-secondary)">0 = Black, 100 = White</p>
+                        </div>
+                        <div style="text-align:center; padding:16px; background:var(--bg-code); border-radius:8px;">
+                            <h4 style="color:var(--success)">A Channel</h4>
+                            <p style="font-size:0.9rem">ONLY Green↔Red</p>
+                            <p style="font-size:0.75rem; color:var(--text-secondary)">-128 to +127</p>
+                        </div>
+                        <div style="text-align:center; padding:16px; background:var(--bg-code); border-radius:8px;">
+                            <h4 style="color:var(--primary)">B Channel</h4>
+                            <p style="font-size:0.9rem">ONLY Blue↔Yellow</p>
+                            <p style="font-size:0.75rem; color:var(--text-secondary)">-128 to +127</p>
+                        </div>
+                    </div>
+                    <p style="text-align:center; margin-top:16px; color:var(--success)"><strong>✓ We can fix L (shadows)
+                            without touching A,B (colors)!</strong></p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3><span class="card-icon"
+                        style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">📐</span> Sobel Operators
+                    (Gradient)</h3>
+                <p>Computes the <strong>rate of change</strong> of pixel intensity. High gradient = edge or shadow
+                    boundary.</p>
+
+                <div class="matrix-container">
+                    <div>
+                        <p style="color: var(--accent); margin-bottom: 8px; text-align:center">Gx (Horizontal)</p>
+                        <div class="matrix matrix-3x3">
+                            <span>-1</span><span>0</span><span>+1</span>
+                            <span>-2</span><span>0</span><span>+2</span>
+                            <span>-1</span><span>0</span><span>+1</span>
+                        </div>
+                        <p style="font-size:0.7rem; color:var(--text-secondary); text-align:center; margin-top:6px">
+                            Detects vertical edges │</p>
+                    </div>
+                    <div>
+                        <p style="color: var(--accent); margin-bottom: 8px; text-align:center">Gy (Vertical)</p>
+                        <div class="matrix matrix-3x3">
+                            <span>-1</span><span>-2</span><span>-1</span>
+                            <span>0</span><span>0</span><span>0</span>
+                            <span>+1</span><span>+2</span><span>+1</span>
+                        </div>
+                        <p style="font-size:0.7rem; color:var(--text-secondary); text-align:center; margin-top:6px">
+                            Detects horizontal edges ─</p>
+                    </div>
+                </div>
+
+                <div class="formula-box">
+                    <div class="formula-title">Gradient Magnitude</div>
+                    <div class="formula">G = √(Gx² + Gy²)</div>
+                </div>
+
+                <div class="tip">
+                    <div class="tip-title">💡 How Convolution Works</div>
+                    For <strong>EVERY pixel</strong> in the image, we place the 3×3 kernel on top, multiply each kernel
+                    value by the corresponding pixel, sum them up, and that becomes the new pixel value. This is done
+                    with BOTH Gx and Gy kernels.
+                </div>
+            </div>
+
+            <div class="card">
+                <h3><span class="card-icon"
+                        style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">💡</span> Retinex Theory
+                </h3>
+                <p>The key insight: An image is the <strong>product of Reflectance and Illumination</strong>.</p>
+
+                <div class="formula-box">
+                    <div class="formula-title">Core Equation</div>
+                    <div class="formula">Image = Reflectance × Illumination</div>
+                </div>
+
+                <div class="grid-2" style="margin-top:16px">
+                    <div style="background:var(--bg-code); padding:16px; border-radius:8px;">
+                        <h4 style="color:var(--success)">Reflectance</h4>
+                        <p style="font-size:0.85rem; color:var(--text-secondary)">The actual surface properties (text,
+                            paper color) - <strong>what we WANT to keep</strong></p>
+                    </div>
+                    <div style="background:var(--bg-code); padding:16px; border-radius:8px;">
+                        <h4 style="color:var(--danger)">Illumination</h4>
+                        <p style="font-size:0.85rem; color:var(--text-secondary)">The lighting conditions (shadows,
+                            uneven light) - <strong>what we want to REMOVE</strong></p>
+                    </div>
+                </div>
+
+                <div class="code-block" style="margin-top:16px">
+                    <span class="comment"># Retinex-based shadow removal</span>
+                    <span class="comment"># Step 1: Estimate illumination (large blur)</span>
+                    illumination = cv2.GaussianBlur(l_channel, (<span class="number">31</span>, <span
+                        class="number">31</span>), <span class="number">0</span>)
+
+                    <span class="comment"># Step 2: Compute reflectance</span>
+                    reflectance = l_channel / (illumination + <span class="number">1e-6</span>)
+
+                    <span class="comment"># Step 3: Re-illuminate with UNIFORM light</span>
+                    output = reflectance * np.mean(illumination)
+                </div>
+            </div>
+
+            <div class="card">
+                <h3><span class="card-icon"
+                        style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">📊</span> CLAHE</h3>
+                <p><strong>Contrast Limited Adaptive Histogram Equalization</strong> - Enhances contrast locally.</p>
+
+                <div class="grid-2">
+                    <div>
+                        <h4 style="color:var(--primary); margin-bottom:12px">How It Works:</h4>
+                        <ol style="margin-left:20px; color:var(--text-secondary); font-size:0.9rem;">
+                            <li>Divide image into 8×8 tiles</li>
+                            <li>Equalize histogram in each tile separately</li>
+                            <li>Clip histogram to prevent over-enhancement</li>
+                            <li>Interpolate between tiles for smooth result</li>
+                        </ol>
+                    </div>
+                    <div>
+                        <h4 style="color:var(--accent); margin-bottom:12px">Parameters:</h4>
+                        <div class="code-block">
+                            clahe = cv2.createCLAHE(
+                            clipLimit=<span class="number">2.0</span>, <span class="comment"># Max contrast</span>
+                            tileGridSize=(<span class="number">8</span>, <span class="number">8</span>) <span
+                                class="comment"># 64 tiles</span>
+                            )
+                            enhanced = clahe.apply(l_channel)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Edge Detection -->
+    <section id="edges" class="section" style="background: rgba(99, 102, 241, 0.03);">
+        <div class="container">
+            <div class="section-header">
+                <h2>🔍 Stage 3: Edge Detection</h2>
+                <p>Finding document boundaries</p>
+            </div>
+
+            <div class="card">
+                <h3><span class="card-icon"
+                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">⚡</span> Canny Edge
+                    Detection</h3>
+                <p>The gold standard for edge detection. Produces thin, well-connected edge lines.</p>
+
+                <div class="grid-2" style="margin-top:20px">
+                    <div>
+                        <h4 style="color:var(--primary); margin-bottom:12px">The 5 Steps:</h4>
+                        <ol style="margin-left:20px; color:var(--text-secondary); font-size:0.9rem;">
+                            <li><strong>Gaussian Blur</strong> - Reduce noise</li>
+                            <li><strong>Gradient Calculation</strong> - Sobel Gx, Gy</li>
+                            <li><strong>Non-Maximum Suppression</strong> - Thin to 1px</li>
+                            <li><strong>Double Thresholding</strong> - Strong/weak edges</li>
+                            <li><strong>Hysteresis</strong> - Connect weak to strong</li>
+                        </ol>
+                    </div>
+                    <div>
+                        <h4 style="color:var(--accent); margin-bottom:12px">Adaptive Thresholds:</h4>
+                        <div class="code-block">
+                            <span class="comment"># Compute thresholds from image</span>
+                            median = np.median(gray)
+                            lower = <span class="number">0.7</span> * median
+                            upper = <span class="number">1.3</span> * median
+
+                            edges = cv2.Canny(gray, lower, upper)
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-3">
+                <div class="card">
+                    <h3 style="color: var(--success);">Canny</h3>
+                    <p style="font-size:0.9rem; color:var(--text-secondary)">Binary output, thin edges, automatic noise
+                        suppression.</p>
+                    <span class="tag tag-success">Clean Documents</span>
+                </div>
+                <div class="card">
+                    <h3 style="color: var(--primary);">Sobel</h3>
+                    <p style="font-size:0.9rem; color:var(--text-secondary)">Gradient magnitude, shows edge "strength",
+                        good for textures.</p>
+                    <span class="tag tag-primary">Noisy Backgrounds</span>
+                </div>
+                <div class="card">
+                    <h3 style="color: var(--accent);">Laplacian</h3>
+                    <p style="font-size:0.9rem; color:var(--text-secondary)">Second derivative, detects zero-crossings,
+                        very sensitive.</p>
+                    <span class="tag tag-warning">High Contrast</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Morphology -->
+    <section id="morphology" class="section">
+        <div class="container">
+            <div class="section-header">
+                <h2>🔧 Stage 4: Morphological Operations</h2>
+                <p>Cleaning up the edge detection results</p>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <h3 style="color: var(--success);">Dilation</h3>
+                    <p><strong>Expands</strong> white regions. Output = MAX of neighborhood.</p>
+                    <div class="formula-box">
+                        <div class="formula">dst(x,y) = max{src(x+i, y+j)}</div>
+                    </div>
+                    <p style="margin-top:12px; font-size:0.9rem; color:var(--text-secondary)">✓ Closes gaps in
+                        edges<br>✓ Connects nearby objects</p>
+                </div>
+                <div class="card">
+                    <h3 style="color: var(--danger);">Erosion</h3>
+                    <p><strong>Shrinks</strong> white regions. Output = MIN of neighborhood.</p>
+                    <div class="formula-box">
+                        <div class="formula">dst(x,y) = min{src(x+i, y+j)}</div>
+                    </div>
+                    <p style="margin-top:12px; font-size:0.9rem; color:var(--text-secondary)">✓ Removes small noise<br>✓
+                        Separates objects</p>
+                </div>
+            </div>
+
+            <div class="grid-2" style="margin-top:20px">
+                <div class="card">
+                    <h3 style="color: var(--primary);">Opening</h3>
+                    <p><strong>Erosion → Dilation</strong></p>
+                    <p style="font-size:0.9rem; color:var(--text-secondary)">Removes small bright spots (noise) while
+                        preserving larger shapes.</p>
+                    <div class="code-block">
+                        cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
+                    </div>
+                </div>
+                <div class="card">
+                    <h3 style="color: var(--accent);">Closing</h3>
+                    <p><strong>Dilation → Erosion</strong></p>
+                    <p style="font-size:0.9rem; color:var(--text-secondary)">Fills small holes inside objects, connects
+                        broken edges.</p>
+                    <div class="code-block">
+                        cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top:20px">
+                <h3>Structuring Elements</h3>
+                <div class="matrix-container">
+                    <div>
+                        <p style="color: var(--accent); margin-bottom: 8px; text-align:center">Rectangular 3×3</p>
+                        <div class="matrix matrix-3x3">
+                            <span>1</span><span>1</span><span>1</span>
+                            <span>1</span><span>1</span><span>1</span>
+                            <span>1</span><span>1</span><span>1</span>
+                        </div>
+                    </div>
+                    <div>
+                        <p style="color: var(--accent); margin-bottom: 8px; text-align:center">Elliptical 5×5</p>
+                        <div class="matrix" style="grid-template-columns: repeat(5, 1fr);">
+                            <span>0</span><span>1</span><span>1</span><span>1</span><span>0</span>
+                            <span>1</span><span>1</span><span>1</span><span>1</span><span>1</span>
+                            <span>1</span><span>1</span><span>1</span><span>1</span><span>1</span>
+                            <span>1</span><span>1</span><span>1</span><span>1</span><span>1</span>
+                            <span>0</span><span>1</span><span>1</span><span>1</span><span>0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contours -->
+    <section id="contours" class="section" style="background: rgba(6, 182, 212, 0.03);">
+        <div class="container">
+            <div class="section-header">
+                <h2>📐 Stage 5: Contour & Corner Extraction</h2>
+                <p>From edges to document boundaries</p>
+            </div>
+
+            <div class="card">
+                <h3><span class="card-icon"
+                        style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">🔷</span> Douglas-Peucker
+                    Algorithm</h3>
+                <p>Simplifies a contour to a polygon with fewer vertices while maintaining shape.</p>
+
+                <div class="formula-box">
+                    <div class="formula-title">Epsilon Calculation</div>
+                    <div class="formula">ε = 0.02 × perimeter(contour)</div>
+                </div>
+
+                <div class="grid-2" style="margin-top:20px">
+                    <div>
+                        <h4 style="color:var(--primary); margin-bottom:12px">Algorithm:</h4>
+                        <ol style="margin-left:20px; color:var(--text-secondary); font-size:0.9rem;">
+                            <li>Draw line between first and last point</li>
+                            <li>Find point farthest from this line</li>
+                            <li>If distance &gt; ε: split and recurse</li>
+                            <li>If distance ≤ ε: approximate as line</li>
+                        </ol>
+                    </div>
+                    <div>
+                        <div class="code-block">
+                            peri = cv2.arcLength(contour, <span class="keyword">True</span>)
+                            epsilon = <span class="number">0.02</span> * peri
+                            approx = cv2.approxPolyDP(contour, epsilon, <span class="keyword">True</span>)
+
+                            <span class="keyword">if</span> len(approx) == <span class="number">4</span>:
+                            <span class="comment"># Found a quadrilateral!</span>
+                            corners = approx.reshape(<span class="number">4</span>, <span class="number">2</span>)
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3><span class="card-icon"
+                        style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">📍</span> Corner Ordering
+                    Algorithm</h3>
+                <p>Ensures corners are in order: Top-Left → Top-Right → Bottom-Right → Bottom-Left</p>
+
+                <div class="visual-box" style="margin-top:16px; max-width:400px;">
+                    Sum (x+y): Difference (y-x):
+                    • Top-left: SMALLEST sum • Top-right: SMALLEST diff
+                    • Bottom-right: LARGEST sum • Bottom-left: LARGEST diff
+                </div>
+
+                <div class="code-block" style="margin-top:16px">
+                    <span class="keyword">def</span> <span class="function">order_corners</span>(corners):
+                    s = corners.sum(axis=<span class="number">1</span>) <span class="comment"># x + y</span>
+                    d = np.diff(corners, axis=<span class="number">1</span>) <span class="comment"># y - x</span>
+
+                    ordered[<span class="number">0</span>] = corners[np.argmin(s)] <span class="comment">#
+                        Top-left</span>
+                    ordered[<span class="number">2</span>] = corners[np.argmax(s)] <span class="comment">#
+                        Bottom-right</span>
+                    ordered[<span class="number">1</span>] = corners[np.argmin(d)] <span class="comment">#
+                        Top-right</span>
+                    ordered[<span class="number">3</span>] = corners[np.argmax(d)] <span class="comment">#
+                        Bottom-left</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Homography -->
+    <section id="homography" class="section">
+        <div class="container">
+            <div class="section-header">
+                <h2>🎯 Stage 6: Homography & Perspective Correction</h2>
+                <p>The mathematical heart of document scanning</p>
+            </div>
+
+            <div class="card">
+                <h3><span class="card-icon"
+                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">📊</span> The Homography
+                    Matrix</h3>
+                <p>A 3×3 transformation matrix that maps points from one plane to another.</p>
+
+                <div class="matrix-container">
+                    <div>
+                        <p style="color: var(--accent); margin-bottom: 8px; text-align:center">3×3 Matrix H</p>
+                        <div class="matrix matrix-3x3" style="font-size:1rem;">
+                            <span>h₁₁</span><span>h₁₂</span><span>h₁₃</span>
+                            <span>h₂₁</span><span>h₂₂</span><span>h₂₃</span>
+                            <span>h₃₁</span><span>h₃₂</span><span>h₃₃</span>
+                        </div>
+                        <p style="font-size:0.75rem; color:var(--text-secondary); text-align:center; margin-top:8px">8
+                            degrees of freedom (h₃₃=1)</p>
+                    </div>
+                </div>
+
+                <div class="formula-box" style="margin-top:20px">
+                    <div class="formula-title">Point Transformation</div>
+                    <div class="formula" style="font-size:1rem;">
+                        x' = (h₁₁·x + h₁₂·y + h₁₃) / (h₃₁·x + h₃₂·y + h₃₃)<br>
+                        y' = (h₂₁·x + h₂₂·y + h₂₃) / (h₃₁·x + h₃₂·y + h₃₃)
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3><span class="card-icon"
+                        style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">🧮</span> Direct Linear
+                    Transform (DLT)</h3>
+                <p>Computes H from 4 point correspondences. Each point gives 2 equations → 8 equations for 8 unknowns.
+                </p>
+
+                <div class="code-block">
+                    <span class="comment"># Source: detected document corners</span>
+                    src = np.array([[<span class="number">100</span>,<span class="number">80</span>], [<span
+                        class="number">540</span>,<span class="number">60</span>], [<span
+                        class="number">560</span>,<span class="number">400</span>], [<span
+                        class="number">80</span>,<span class="number">420</span>]], dtype=np.float32)
+
+                    <span class="comment"># Destination: perfect rectangle</span>
+                    dst = np.array([[<span class="number">0</span>,<span class="number">0</span>], [width,<span
+                        class="number">0</span>], [width,height], [<span class="number">0</span>,height]],
+                    dtype=np.float32)
+
+                    <span class="comment"># Compute homography using DLT internally</span>
+                    H = cv2.getPerspectiveTransform(src, dst)
+
+                    <span class="comment"># Apply perspective warp</span>
+                    warped = cv2.warpPerspective(image, H, (width, height))
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Enhancement -->
+    <section id="enhancement" class="section" style="background: rgba(99, 102, 241, 0.03);">
+        <div class="container">
+            <div class="section-header">
+                <h2>✨ Stage 7: Image Enhancement</h2>
+                <p>Final polish for scanner-quality output</p>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <h3 style="color: var(--success);">Unsharp Masking</h3>
+                    <p>Sharpens by enhancing edges.</p>
+                    <div class="formula-box">
+                        <div class="formula">sharp = img + α × (img - blur)</div>
+                    </div>
+                    <div class="code-block">
+                        blurred = cv2.GaussianBlur(img, (<span class="number">0</span>,<span class="number">0</span>),
+                        sigmaX=<span class="number">1.5</span>)
+                        sharp = cv2.addWeighted(img, <span class="number">1.3</span>, blurred, <span
+                            class="number">-0.3</span>, <span class="number">0</span>)
+                    </div>
+                </div>
+                <div class="card">
+                    <h3 style="color: var(--accent);">Gamma Correction</h3>
+                    <p>Non-linear brightness adjustment.</p>
+                    <div class="formula-box">
+                        <div class="formula">out = 255 × (in/255)<sup>γ</sup></div>
+                    </div>
+                    <p style="margin-top:12px; font-size:0.9rem; color:var(--text-secondary)">
+                        γ &lt; 1 → Brightens<br>
+                        γ &gt; 1 → Darkens
+                    </p>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top:20px">
+                <h3><span class="card-icon"
+                        style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">🔇</span> Non-Local Means
+                    Denoising</h3>
+                <p>Removes noise by averaging <strong>similar patches</strong> across the entire image (not just
+                    neighbors).</p>
+                <p style="margin-top:12px; color:var(--text-secondary)"><strong>Why better than Gaussian:</strong>
+                    Preserves edges because edge pixels aren't similar to non-edge pixels.</p>
+                <div class="code-block">
+                    denoised = cv2.fastNlMeansDenoisingColored(
+                    image, <span class="keyword">None</span>,
+                    h=<span class="number">6</span>, <span class="comment"># Filter strength</span>
+                    templateWindowSize=<span class="number">7</span>, <span class="comment"># Patch size</span>
+                    searchWindowSize=<span class="number">21</span> <span class="comment"># Search area</span>
+                    )
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <h3 style="margin-bottom: 12px;">CV Complete Guide - Shadow-Robust Document Scanner</h3>
+            <p>Built with OpenCV 4.8 | NumPy | Python 3.9+</p>
+            <p style="margin-top: 10px;">© 2025 Prem Kumar. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+    </script>
+</body>
+
+</html>

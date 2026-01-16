@@ -8,9 +8,10 @@ interface ResultScreenProps {
     onRetake: () => void;
     onFinish: () => void;
     scanResult?: ScanResult | null;
+    scannedPages?: string[]; // All scanned pages for multi-page PDF
 }
 
-export const ResultScreen: React.FC<ResultScreenProps> = ({ onAddPage, onRetake, onFinish, scanResult }) => {
+export const ResultScreen: React.FC<ResultScreenProps> = ({ onAddPage, onRetake, onFinish, scanResult, scannedPages = [] }) => {
     const [sliderPos, setSliderPos] = useState(50);
     const [isSaving, setIsSaving] = useState(false);
     const [saved, setSaved] = useState(false);
@@ -25,6 +26,9 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ onAddPage, onRetake,
     const originalImage = currentScan.originalImage;
     const scannedImage = scanResult?.scan || currentScan.scannedImage;
     const confidence = scanResult?.confidence || currentScan.confidence || 0;
+
+    // Total pages count
+    const pageCount = scannedPages.length || (scannedImage ? 1 : 0);
 
     const handleSave = async () => {
         if (!scannedImage) return;
@@ -75,27 +79,48 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ onAddPage, onRetake,
     };
 
     const handleExportPdf = async () => {
-        if (!scannedImage) return;
+        // Use all scanned pages if available, otherwise use current scan
+        const pagesToExport = scannedPages.length > 0 ? scannedPages : (scannedImage ? [scannedImage] : []);
+
+        console.log('[ResultScreen] handleExportPdf called');
+        console.log('[ResultScreen] scannedPages:', scannedPages.length);
+        console.log('[ResultScreen] scannedImage exists:', !!scannedImage);
+        console.log('[ResultScreen] pagesToExport:', pagesToExport.length);
+
+        if (pagesToExport.length === 0) {
+            console.error('[ResultScreen] No pages to export!');
+            return;
+        }
 
         setIsSaving(true);
         try {
-            const result = await api.exportToPdf([scannedImage], { page_size: 'A4' });
+            console.log('[ResultScreen] Calling api.exportToPdf...');
+            const result = await api.exportToPdf(pagesToExport, { page_size: 'A4' });
+            console.log('[ResultScreen] PDF result:', result);
+
             if (result.success && result.pdf) {
                 // Save PDF to library
                 addDocument({
                     title: `${docTitle}.pdf`,
                     date: formatDate(new Date()),
                     size: getFileSizeString(result.pdf),
-                    thumbnail: scannedImage, // Use the scan as thumbnail
+                    thumbnail: pagesToExport[0], // Use first page as thumbnail
                     type: 'pdf',
-                    pageCount: 1
+                    pageCount: pagesToExport.length
                 });
 
                 // Download
+                console.log('[ResultScreen] Downloading PDF...');
                 api.downloadBase64(result.pdf, `${docTitle}.pdf`);
+                setSaved(true);
+                setTimeout(() => setSaved(false), 2000);
+            } else {
+                console.error('PDF export failed:', result.error);
+                alert('PDF export failed: ' + (result.error || 'Unknown error'));
             }
         } catch (e) {
             console.error('PDF export failed', e);
+            alert('PDF export error: ' + e);
         }
         setIsSaving(false);
     };
@@ -130,6 +155,9 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({ onAddPage, onRetake,
                         className="bg-transparent text-white text-[17px] font-semibold tracking-wide text-center border-none outline-none focus:bg-white/10 rounded-lg px-2 py-1"
                         placeholder="Document name"
                     />
+                    {pageCount > 0 && (
+                        <p className="text-gray-400 text-xs mt-1">{pageCount} page{pageCount > 1 ? 's' : ''}</p>
+                    )}
                 </div>
                 <button className="flex size-10 items-center justify-center rounded-full hover:bg-white/10 transition-colors">
                     <span className="material-symbols-outlined text-white" style={{ fontSize: 24 }}>tune</span>

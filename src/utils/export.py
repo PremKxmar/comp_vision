@@ -21,10 +21,15 @@ try:
 except ImportError:
     REPORTLAB_AVAILABLE = False
 
+# Import PIL (required for PDF export)
+try:
+    from PIL import Image
+except ImportError:
+    print("Warning: PIL (Pillow) not installed. PDF export may fail.")
+
 # Try to import OCR
 try:
     import pytesseract
-    from PIL import Image
     TESSERACT_AVAILABLE = True
 except ImportError:
     TESSERACT_AVAILABLE = False

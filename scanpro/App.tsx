@@ -18,6 +18,7 @@ export default function App() {
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [isDark, setIsDark] = useState(true);
   const [lastScanResult, setLastScanResult] = useState<ScanResult | null>(null);
+  const [scannedPages, setScannedPages] = useState<string[]>([]); // Multi-page support
 
   // Initialize theme
   useEffect(() => {
@@ -42,8 +43,23 @@ export default function App() {
 
   const handleScanComplete = (result: ScanResult) => {
     setLastScanResult(result);
-    // Skip edit screen, go directly to result for now
+    // Add scanned image to pages collection
+    if (result.scan) {
+      setScannedPages(prev => [...prev, result.scan!]);
+    }
     setScreen('result');
+  };
+
+  const handleAddPage = () => {
+    // Go to camera to add another page
+    setScreen('camera');
+  };
+
+  const handleFinishDocument = () => {
+    // Clear pages collection when done
+    setScannedPages([]);
+    setLastScanResult(null);
+    setScreen('library');
   };
 
   const getDoc = () => {
@@ -65,10 +81,15 @@ export default function App() {
       case 'result':
         return (
           <ResultScreen
-            onAddPage={() => setScreen('camera')}
-            onRetake={() => setScreen('camera')}
-            onFinish={() => setScreen('library')}
+            onAddPage={handleAddPage}
+            onRetake={() => {
+              // Remove last page when retaking
+              setScannedPages(prev => prev.slice(0, -1));
+              setScreen('camera');
+            }}
+            onFinish={handleFinishDocument}
             scanResult={lastScanResult}
+            scannedPages={scannedPages}
           />
         );
       case 'viewer':
