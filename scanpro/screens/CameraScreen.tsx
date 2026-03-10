@@ -1,240 +1,482 @@
-import React, { useState, useRef } from 'react';
-import api from '../services/api';
-import { setCurrentScan } from '../store';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
+import { ScannerState } from '../types';
+import { fileToBase64, scanDocument, checkHealth } from '../services/api';
+import { setCurrentScan, loadSettings } from '../store';
 
 interface CameraScreenProps {
-    onCapture: (scanResult: any) => void;
-    onCancel: () => void;
+  onCapture: () => void;
+  onCancel: () => void;
 }
 
-export const CameraScreen: React.FC<CameraScreenProps> = ({ onCapture, onCancel }) => {
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const galleryInputRef = useRef<HTMLInputElement>(null);
-    const [isScanning, setIsScanning] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [previewImage, setPreviewImage] = useState<string | null>(null);
+const CameraScreen: React.FC<CameraScreenProps> = ({ onCapture, onCancel }) => {
+  const [state, setState] = useState<ScannerState>({
+    isProcessing: false,
+    error: null,
+    previewImage: null,
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const [apiOnline, setApiOnline] = useState<boolean | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [fileSize, setFileSize] = useState<string | null>(null);
+  const [processingStep, setProcessingStep] = useState(0);
 
-    const processImage = async (base64Image: string) => {
-        setIsScanning(true);
-        setError(null);
-        setPreviewImage(base64Image);
+  // Scan options
+  const settings = loadSettings();
+  const [removeShadows, setRemoveShadows] = useState(settings.removeShadows ?? true);
+  const [autoEnhance, setAutoEnhance] = useState(settings.autoEnhance ?? false);
+  const [outputFormat, setOutputFormat] = useState<'jpeg' | 'png'>('jpeg');
 
-        try {
-            console.log('Sending to API for processing...');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
 
-            const result = await api.scanDocument(base64Image, {
-                remove_shadows: true,
-                enhance: true,
-                output_format: 'jpeg'
-            });
+  // Check backend status on mount
+  useEffect(() => {
+    checkHealth().then(setApiOnline);
+  }, []);
 
-            console.log('API result:', result);
+  // Animate processing steps
+  useEffect(() => {
+    if (!state.isProcessing) { setProcessingStep(0); return; }
+    const steps = [0, 1, 2, 3];
+    let i = 0;
+    const interval = setInterval(() => {
+      i++;
+      if (i < steps.length) setProcessingStep(steps[i]);
+      else clearInterval(interval);
+    }, 1800);
+    return () => clearInterval(interval);
+  }, [state.isProcessing]);
 
-            if (result.success && result.scan) {
-                // Store the scan result
-                setCurrentScan(base64Image, result.scan, result.corners || null, result.confidence || 0);
+  const formatSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
-                // Navigate to result screen
-                onCapture(result);
-            } else {
-                setError(result.message || result.error || 'No document detected. Try a clearer image.');
+  const processFile = async (file: File) => {
+    setFileName(file.name);
+    setFileSize(formatSize(file.size));
+    try {
+      setState(prev => ({ ...prev, isProcessing: true, error: null }));
+      const base64 = await fileToBase64(file);
+      setState(prev => ({ ...prev, previewImage: base64 }));
 
-                // Store anyway for retry
-                setCurrentScan(base64Image, null, null, 0);
-            }
-        } catch (err: any) {
-            console.error('Scan error:', err);
-            setError(`API Error: ${err.message}. Is the backend running?`);
-        } finally {
-            setIsScanning(false);
-        }
-    };
+      const result = await scanDocument(base64, {
+        remove_shadows: removeShadows,
+        enhance: autoEnhance,
+        output_format: outputFormat,
+      });
 
-    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+      if (!result.success) {
+        setState(prev => ({
+          ...prev,
+          isProcessing: false,
+          error: result.error || 'Scan failed. Please try again.',
+        }));
+        return;
+      }
 
-        try {
-            const base64 = await api.fileToBase64(file);
-            await processImage(base64);
-        } catch (err: any) {
-            setError('Failed to read image file');
-        }
+      setCurrentScan(base64, result);
+      onCapture();
+    } catch (err) {
+      console.error(err);
+      setState(prev => ({
+        ...prev,
+        isProcessing: false,
+        error: 'Failed to process document. Check your backend connection.',
+      }));
+    }
+  };
 
-        // Reset input so same file can be selected again
-        e.target.value = '';
-    };
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processFile(file);
+  };
 
-    const openCamera = () => {
-        fileInputRef.current?.click();
-    };
+  // ---- Drag & Drop ----
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
 
-    const openGallery = () => {
-        galleryInputRef.current?.click();
-    };
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
 
-    return (
-        <div className="bg-background-dark text-white font-display overflow-hidden h-screen w-full relative">
-            {/* Background / Preview */}
-            <div className="absolute inset-0 z-0">
-                {previewImage ? (
-                    <img
-                        src={previewImage}
-                        alt="Preview"
-                        className="w-full h-full object-cover"
-                    />
-                ) : (
-                    <div className="w-full h-full bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center">
-                        <div className="text-center p-6">
-                            <span className="material-symbols-outlined text-6xl text-gray-600 mb-4">photo_camera</span>
-                            <p className="text-gray-400 text-lg">Tap the camera button below</p>
-                            <p className="text-gray-500 text-sm mt-2">to capture a document</p>
-                        </div>
-                    </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/70"></div>
-            </div>
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      await processFile(file);
+    }
+  }, [removeShadows, autoEnhance, outputFormat]);
 
-            {/* Hidden file inputs */}
-            <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={handleFileSelect}
-            />
-            <input
-                ref={galleryInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFileSelect}
-            />
+  const resetState = () => {
+    setState({ isProcessing: false, error: null, previewImage: null });
+    setFileName(null);
+    setFileSize(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+  };
 
-            <div className="relative z-10 flex flex-col h-full justify-between">
-                {/* Top Status */}
-                <div className="pt-12 px-6 pb-4 flex items-start justify-between">
-                    <button onClick={onCancel} className="group flex items-center justify-center size-10 rounded-full bg-black/30 backdrop-blur-md border border-white/10 active:bg-white/20 transition-all">
-                        <span className="material-symbols-outlined text-white" style={{ fontSize: 24 }}>close</span>
-                    </button>
+  const steps = [
+    { icon: 'upload_file', label: 'Uploading image', desc: 'Reading and encoding file' },
+    { icon: 'center_focus_strong', label: 'Detecting edges', desc: 'Finding document boundaries' },
+    { icon: 'wb_sunny', label: 'Removing shadows', desc: 'AI shadow removal in progress' },
+    { icon: 'auto_fix_high', label: 'Enhancing output', desc: 'Sharpening & contrast correction' },
+  ];
 
-                    <div className="flex flex-col gap-1 items-center bg-black/30 backdrop-blur-md rounded-2xl p-3 border border-white/5">
-                        <div className="relative size-10 flex items-center justify-center">
-                            {isScanning ? (
-                                <div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full"></div>
-                            ) : (
-                                <>
-                                    <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                                        <path className="text-white/20" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3"></path>
-                                        <path className="text-accent-cyan drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeDasharray="75, 100" strokeLinecap="round" strokeWidth="3"></path>
-                                    </svg>
-                                    <span className="material-symbols-outlined text-white text-[18px] absolute">document_scanner</span>
-                                </>
-                            )}
-                        </div>
-                        <span className="text-[10px] font-medium text-gray-300 uppercase tracking-wider">
-                            {isScanning ? 'Processing...' : 'Ready'}
-                        </span>
-                    </div>
+  return (
+    <div className="h-full flex flex-col gap-6 animate-fade-up pb-20 lg:pb-0">
+      {/* Hidden Inputs */}
+      <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleFile} />
+      <input type="file" accept="image/*" capture="environment" className="hidden" ref={cameraInputRef} onChange={handleFile} />
 
-                    <div className="size-12"></div> {/* Spacer */}
-                </div>
-
-                {/* Center Scanner Frame */}
-                <div className="flex-1 flex flex-col items-center justify-center relative">
-                    <div className="relative w-[80%] aspect-[3/4] max-w-sm">
-                        {/* Scanning animation */}
-                        {isScanning && (
-                            <>
-                                <div className="absolute left-0 right-0 h-1 bg-cyan-400/50 shadow-[0_0_15px_rgba(34,211,238,0.6)] z-20" style={{
-                                    animation: 'scanLine 1.5s ease-in-out infinite'
-                                }}></div>
-                                <style>{`
-                  @keyframes scanLine {
-                    0% { top: 5%; opacity: 0; }
-                    10% { opacity: 1; }
-                    90% { opacity: 1; }
-                    100% { top: 95%; opacity: 0; }
-                  }
-                `}</style>
-                            </>
-                        )}
-
-                        {/* Corner markers */}
-                        <div className={`absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 ${isScanning ? 'border-green-400' : 'border-cyan-400'} rounded-tl-xl drop-shadow-[0_0_4px_rgba(34,211,238,0.8)] transition-colors`}></div>
-                        <div className={`absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 ${isScanning ? 'border-green-400' : 'border-cyan-400'} rounded-tr-xl drop-shadow-[0_0_4px_rgba(34,211,238,0.8)] transition-colors`}></div>
-                        <div className={`absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 ${isScanning ? 'border-green-400' : 'border-cyan-400'} rounded-br-xl drop-shadow-[0_0_4px_rgba(34,211,238,0.8)] transition-colors`}></div>
-                        <div className={`absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 ${isScanning ? 'border-green-400' : 'border-cyan-400'} rounded-bl-xl drop-shadow-[0_0_4px_rgba(34,211,238,0.8)] transition-colors`}></div>
-
-                        <div className="absolute inset-0 border border-white/10 rounded-lg"></div>
-                    </div>
-
-                    <div className="mt-8">
-                        <div className={`flex h-10 items-center justify-center gap-x-2 rounded-full ${error ? 'bg-red-500/20' : 'bg-black/40'} backdrop-blur-lg border ${error ? 'border-red-500/30' : 'border-white/10'} px-5 shadow-lg`}>
-                            <span className={`material-symbols-outlined ${error ? 'text-red-400' : 'text-cyan-400'} text-[18px]`}>
-                                {isScanning ? 'hourglass_empty' : error ? 'error' : 'center_focus_strong'}
-                            </span>
-                            <p className={`${error ? 'text-red-300' : 'text-white'} text-sm font-medium leading-normal`}>
-                                {isScanning ? 'Processing document...' : error || 'Tap camera to capture'}
-                            </p>
-                        </div>
-                        {error && (
-                            <button
-                                onClick={() => setError(null)}
-                                className="mt-3 px-4 py-2 bg-white/10 rounded-full text-sm text-white"
-                            >
-                                Dismiss
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                {/* Bottom Bar */}
-                <div className="w-full glass-panel rounded-t-[2.5rem] pb-8 pt-6 px-8 transition-transform duration-500 ease-out">
-                    <div className="flex items-center justify-between max-w-md mx-auto relative">
-                        {/* Gallery button */}
-                        <button onClick={openGallery} className="flex flex-col items-center gap-1 group relative">
-                            <div className="size-12 rounded-2xl bg-white/10 overflow-hidden border border-white/20 flex items-center justify-center group-active:scale-95 transition-transform">
-                                <span className="material-symbols-outlined text-white text-[20px]">photo_library</span>
-                            </div>
-                            <span className="text-[10px] font-medium text-white/60">Gallery</span>
-                        </button>
-
-                        {/* Capture button */}
-                        <div className="relative group cursor-pointer -mt-6">
-                            <div className={`absolute inset-0 rounded-full ${isScanning ? 'bg-green-500/30' : 'bg-primary/30'} blur-xl`}></div>
-                            <div className="size-20 rounded-full border-[3px] border-white/20 flex items-center justify-center bg-black/20 backdrop-blur-sm relative z-10">
-                                <button
-                                    onClick={openCamera}
-                                    disabled={isScanning}
-                                    className={`size-16 rounded-full ${isScanning ? 'bg-green-500' : 'bg-gradient-to-br from-[#6467f2] to-[#22d3ee]'} shadow-[0_0_20px_rgba(100,103,242,0.6)] active:scale-90 transition-all duration-200 flex items-center justify-center relative overflow-hidden disabled:opacity-50`}
-                                >
-                                    <div className="absolute top-0 left-0 w-full h-1/2 bg-white/10 rounded-t-full"></div>
-                                    {isScanning ? (
-                                        <div className="animate-spin w-6 h-6 border-2 border-white border-t-transparent rounded-full"></div>
-                                    ) : (
-                                        <span className="material-symbols-outlined text-white drop-shadow-md text-3xl">photo_camera</span>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Cancel button */}
-                        <button onClick={onCancel} className="flex flex-col items-center gap-1 group">
-                            <div className="size-12 rounded-full bg-transparent hover:bg-white/10 border border-transparent hover:border-white/10 flex items-center justify-center transition-all group-active:scale-95">
-                                <span className="material-symbols-outlined text-white text-[28px]">close</span>
-                            </div>
-                            <span className="text-[10px] font-medium text-white/60">Cancel</span>
-                        </button>
-                    </div>
-                    <div className="text-center mt-4">
-                        <p className="text-white/40 text-xs font-medium uppercase tracking-widest">
-                            {isScanning ? 'Processing...' : 'Document Scanner'}
-                        </p>
-                    </div>
-                </div>
-            </div>
+      {/* Page Header */}
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-white flex items-center gap-2">
+            <span className="material-symbols-outlined text-indigo-400" style={{ fontSize: 24 }}>document_scanner</span>
+            Document Scanner
+          </h1>
+          <p className="text-sm text-zinc-500 mt-1">Upload or capture a document to scan, enhance, and export</p>
         </div>
-    );
+        {/* API Status Pill */}
+        <div className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border 
+          ${apiOnline === true ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400' :
+            apiOnline === false ? 'border-red-500/20 bg-red-500/5 text-red-400' :
+            'border-zinc-700 bg-white/[0.02] text-zinc-500'}`}
+        >
+          <div className={`size-1.5 rounded-full ${apiOnline === true ? 'bg-emerald-400' : apiOnline === false ? 'bg-red-400' : 'bg-zinc-500'}`} />
+          {apiOnline === true ? 'Backend Connected' : apiOnline === false ? 'Backend Offline' : 'Checking...'}
+        </div>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-5 min-h-0">
+
+        {/* ============ LEFT: DROP ZONE (2 cols) ============ */}
+        <div className="lg:col-span-2 relative min-h-[380px]">
+          <div
+            ref={dropZoneRef}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`absolute inset-0 rounded-xl border-2 border-dashed transition-all duration-200 flex flex-col items-center justify-center p-8 text-center overflow-hidden
+              ${isDragging
+                ? 'border-indigo-500 bg-indigo-500/[0.06] scale-[1.005]'
+                : state.previewImage
+                  ? 'border-transparent bg-zinc-900/50'
+                  : 'border-white/[0.06] bg-white/[0.015] hover:border-white/[0.1] hover:bg-white/[0.025]'}
+            `}
+          >
+            {/* Preview State */}
+            {state.previewImage ? (
+              <>
+                <img src={state.previewImage} alt="Preview" className="max-w-full max-h-full object-contain rounded-lg" />
+                {!state.isProcessing && (
+                  <div className="absolute top-4 right-4 flex gap-2">
+                    <button
+                      onClick={resetState}
+                      className="bg-black/60 text-white text-xs px-3 py-1.5 rounded-lg backdrop-blur-md border border-white/10 hover:bg-black/80 transition-colors flex items-center gap-1.5"
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 14 }}>close</span>
+                      Remove
+                    </button>
+                  </div>
+                )}
+                {fileName && !state.isProcessing && (
+                  <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md px-3 py-2 rounded-lg border border-white/10">
+                    <p className="text-xs text-white font-medium truncate max-w-[200px]">{fileName}</p>
+                    <p className="text-[10px] text-zinc-400">{fileSize}</p>
+                  </div>
+                )}
+              </>
+            ) : isDragging ? (
+              /* Drag Active State */
+              <div className="flex flex-col items-center gap-4">
+                <div className="size-16 rounded-2xl bg-indigo-500/20 flex items-center justify-center animate-pulse">
+                  <span className="material-symbols-outlined text-indigo-400" style={{ fontSize: 32 }}>file_download</span>
+                </div>
+                <p className="text-sm font-medium text-indigo-300">Release to upload</p>
+              </div>
+            ) : (
+              /* Empty State */
+              <div className="flex flex-col items-center gap-5">
+                {/* Animated icon cluster */}
+                <div className="relative">
+                  <div className="size-20 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-white/[0.04] flex items-center justify-center">
+                    <span className="material-symbols-outlined text-zinc-500" style={{ fontSize: 36 }}>cloud_upload</span>
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 size-7 rounded-lg bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                    <span className="material-symbols-outlined text-white" style={{ fontSize: 16 }}>add</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center gap-1">
+                  <p className="text-sm font-medium text-zinc-300">Drag & drop your document here</p>
+                  <p className="text-xs text-zinc-600">or use the buttons below</p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="bg-white/[0.06] border border-white/[0.08] text-sm text-zinc-300 h-10 px-5 rounded-lg hover:bg-white/[0.1] hover:border-white/[0.12] transition-all flex items-center gap-2 active:scale-[0.97]"
+                  >
+                    <span className="material-symbols-outlined text-zinc-400" style={{ fontSize: 18 }}>folder_open</span>
+                    Browse Files
+                  </button>
+                  <button
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-sm text-white h-10 px-5 rounded-lg transition-all flex items-center gap-2 shadow-lg shadow-indigo-500/20 active:scale-[0.97]"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>photo_camera</span>
+                    Capture Photo
+                  </button>
+                </div>
+
+                {/* Supported formats */}
+                <div className="flex items-center gap-3 mt-2">
+                  {['JPG', 'PNG', 'WEBP'].map(fmt => (
+                    <span key={fmt} className="text-[10px] text-zinc-600 bg-white/[0.03] border border-white/[0.04] px-2 py-0.5 rounded font-medium">
+                      {fmt}
+                    </span>
+                  ))}
+                  <span className="text-[10px] text-zinc-700">•</span>
+                  <span className="text-[10px] text-zinc-600">Max 20 MB</span>
+                </div>
+              </div>
+            )}
+
+            {/* Processing Overlay */}
+            {state.isProcessing && (
+              <div className="absolute inset-0 bg-black/85 backdrop-blur-md z-10 flex flex-col items-center justify-center gap-6">
+                {/* Animated ring */}
+                <div className="relative">
+                  <div className="size-16 rounded-full border-[3px] border-indigo-500/20 border-t-indigo-500 animate-spin" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-indigo-400" style={{ fontSize: 24 }}>document_scanner</span>
+                  </div>
+                </div>
+
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-white mb-1">Processing Document</p>
+                  <p className="text-xs text-zinc-500">{fileName || 'Analyzing image...'}</p>
+                </div>
+
+                {/* Step progress */}
+                <div className="w-64 flex flex-col gap-3 mt-2">
+                  {steps.map((s, i) => {
+                    const isDone = processingStep > i;
+                    const isActive = processingStep === i;
+                    return (
+                      <div key={i} className={`flex items-center gap-3 transition-all duration-300 ${isDone ? 'opacity-40' : isActive ? 'opacity-100' : 'opacity-20'}`}>
+                        <div className={`size-7 rounded-lg flex items-center justify-center border transition-all
+                          ${isDone ? 'bg-emerald-600 border-emerald-600' : isActive ? 'bg-indigo-500/20 border-indigo-500' : 'border-zinc-700 bg-transparent'}`}
+                        >
+                          {isDone ? (
+                            <span className="material-symbols-outlined text-white" style={{ fontSize: 14 }}>check</span>
+                          ) : (
+                            <span className={`material-symbols-outlined ${isActive ? 'text-indigo-400' : 'text-zinc-600'}`} style={{ fontSize: 14 }}>{s.icon}</span>
+                          )}
+                        </div>
+                        <div>
+                          <p className={`text-xs font-medium ${isActive ? 'text-white' : 'text-zinc-400'}`}>{s.label}</p>
+                          {isActive && <p className="text-[10px] text-zinc-500">{s.desc}</p>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Progress bar */}
+                <div className="w-64 h-1 bg-white/[0.06] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-[1800ms] ease-linear"
+                    style={{ width: `${((processingStep + 1) / steps.length) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ============ RIGHT: SIDEBAR PANEL ============ */}
+        <div className="flex flex-col gap-4">
+
+          {/* Scan Options Card */}
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+            <div className="px-4 py-3 border-b border-white/[0.04] flex items-center gap-2">
+              <span className="material-symbols-outlined text-indigo-400" style={{ fontSize: 18 }}>tune</span>
+              <h3 className="text-sm font-medium text-white">Scan Options</h3>
+            </div>
+            <div className="p-4 flex flex-col gap-4">
+              <OptionToggle
+                icon="wb_sunny"
+                label="Shadow Removal"
+                desc="Remove lighting artifacts"
+                value={removeShadows}
+                onChange={setRemoveShadows}
+              />
+              <OptionToggle
+                icon="auto_fix_high"
+                label="Auto Enhance"
+                desc="Sharpen & improve contrast"
+                value={autoEnhance}
+                onChange={setAutoEnhance}
+              />
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-zinc-400 font-medium">Output Format</label>
+                <div className="flex gap-2">
+                  {(['jpeg', 'png'] as const).map(fmt => (
+                    <button
+                      key={fmt}
+                      onClick={() => setOutputFormat(fmt)}
+                      className={`flex-1 h-8 rounded-md text-xs font-medium border transition-all uppercase
+                        ${outputFormat === fmt
+                          ? 'bg-indigo-500/15 border-indigo-500/30 text-indigo-300'
+                          : 'bg-white/[0.02] border-white/[0.06] text-zinc-500 hover:text-zinc-400 hover:border-white/[0.1]'}`}
+                    >
+                      {fmt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Error Card */}
+          {state.error && (
+            <div className="rounded-xl border border-red-500/20 bg-red-500/[0.06] p-4 animate-fade-up">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="material-symbols-outlined text-red-400" style={{ fontSize: 18 }}>error</span>
+                <h3 className="text-sm font-medium text-red-300">Scan Failed</h3>
+              </div>
+              <p className="text-xs text-zinc-400 leading-relaxed mb-3">{state.error}</p>
+              <button
+                onClick={resetState}
+                className="text-xs font-medium text-white bg-red-500/20 hover:bg-red-500/30 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>refresh</span>
+                Try Again
+              </button>
+            </div>
+          )}
+
+          {/* How It Works Card */}
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+            <div className="px-4 py-3 border-b border-white/[0.04] flex items-center gap-2">
+              <span className="material-symbols-outlined text-zinc-500" style={{ fontSize: 18 }}>info</span>
+              <h3 className="text-sm font-medium text-white">How It Works</h3>
+            </div>
+            <div className="p-4 flex flex-col gap-4">
+              <WorkflowStep
+                step={1}
+                icon="upload_file"
+                title="Upload Document"
+                desc="Drag & drop or browse for your document photo"
+              />
+              <WorkflowStep
+                step={2}
+                icon="center_focus_strong"
+                title="Edge Detection"
+                desc="AI detects boundaries and corrects perspective"
+              />
+              <WorkflowStep
+                step={3}
+                icon="wb_sunny"
+                title="Shadow Removal"
+                desc="Advanced algorithm removes lighting artifacts"
+              />
+              <WorkflowStep
+                step={4}
+                icon="download"
+                title="Export Result"
+                desc="Download as image or export to PDF"
+              />
+            </div>
+          </div>
+
+          {/* Capabilities Card */}
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+            <h3 className="text-xs text-zinc-500 uppercase tracking-wide font-medium mb-3">Capabilities</h3>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { icon: 'crop_free', label: 'Auto-crop' },
+                { icon: 'straighten', label: 'Perspective fix' },
+                { icon: 'contrast', label: 'Contrast boost' },
+                { icon: 'wb_sunny', label: 'Shadow removal' },
+                { icon: 'picture_as_pdf', label: 'PDF export' },
+                { icon: 'high_quality', label: 'HD output' },
+              ].map(cap => (
+                <span
+                  key={cap.label}
+                  className="flex items-center gap-1.5 text-[11px] text-zinc-500 bg-white/[0.03] border border-white/[0.04] px-2.5 py-1 rounded-md"
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 13 }}>{cap.icon}</span>
+                  {cap.label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Back / Cancel */}
+          <button
+            onClick={onCancel}
+            className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors mt-auto flex items-center gap-1.5 self-start"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>arrow_back</span>
+            Back to Library
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
+
+// ---- Sub-components ----
+
+const OptionToggle = ({ icon, label, desc, value, onChange }: {
+  icon: string; label: string; desc: string; value: boolean; onChange: (v: boolean) => void;
+}) => (
+  <div className="flex items-center justify-between">
+    <div className="flex items-center gap-2.5">
+      <span className="material-symbols-outlined text-zinc-500" style={{ fontSize: 18 }}>{icon}</span>
+      <div>
+        <p className="text-xs font-medium text-zinc-300">{label}</p>
+        <p className="text-[10px] text-zinc-600">{desc}</p>
+      </div>
+    </div>
+    <button
+      onClick={() => onChange(!value)}
+      className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${value ? 'bg-indigo-600' : 'bg-zinc-700'}`}
+    >
+      <div className={`absolute top-1 size-3 bg-white rounded-full transition-transform ${value ? 'left-5' : 'left-1'}`} />
+    </button>
+  </div>
+);
+
+const WorkflowStep = ({ step, icon, title, desc }: {
+  step: number; icon: string; title: string; desc: string;
+}) => (
+  <div className="flex items-start gap-3 relative">
+    {/* Connector line */}
+    {step < 4 && <div className="absolute top-7 left-[13px] w-[1px] h-[calc(100%+4px)] bg-white/[0.04]" />}
+    <div className="size-7 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center flex-shrink-0 z-10">
+      <span className="material-symbols-outlined text-zinc-500" style={{ fontSize: 14 }}>{icon}</span>
+    </div>
+    <div className="flex flex-col gap-0.5 pt-0.5">
+      <p className="text-xs font-medium text-zinc-300">{title}</p>
+      <p className="text-[11px] text-zinc-600 leading-relaxed">{desc}</p>
+    </div>
+  </div>
+);
+
+export default CameraScreen;

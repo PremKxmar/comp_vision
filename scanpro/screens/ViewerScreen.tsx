@@ -1,107 +1,58 @@
 import React from 'react';
-import api from '../services/api';
 
 interface ViewerScreenProps {
-   onBack: () => void;
-   title: string;
-   size: string;
-   thumbnail?: string;
+  onBack: () => void;
+  title: string;
+  size: string;
+  thumbnail?: string;
 }
 
-export const ViewerScreen: React.FC<ViewerScreenProps> = ({ onBack, title, size, thumbnail }) => {
-
-   const handleShare = async () => {
-      if (!thumbnail) return;
-      try {
-         const blob = api.base64ToBlob(thumbnail);
-         const file = new File([blob], title, { type: 'image/jpeg' });
-         if (navigator.share) {
-            await navigator.share({ files: [file], title });
-         }
-      } catch (e) {
-         console.log('Share failed');
-      }
-   };
-
-   const handleDownload = () => {
-      if (thumbnail) {
-         api.downloadBase64(thumbnail, title);
-      }
-   };
-
-   return (
-      <div className="bg-background-dark font-display text-white overflow-hidden h-screen w-full relative flex flex-col">
-
-         {/* Top Bar */}
-         <header className="fixed top-0 left-0 right-0 z-40 px-4 pt-12 pb-4 flex items-center justify-between bg-gradient-to-b from-background-dark/90 to-transparent">
-            <button onClick={onBack} className="flex size-10 items-center justify-center rounded-full hover:bg-white/10 active:bg-white/20 transition-colors">
-               <span className="material-symbols-outlined text-white" style={{ fontSize: 24 }}>arrow_back_ios_new</span>
-            </button>
-            <div className="flex flex-col items-center">
-               <h1 className="text-white text-[15px] font-bold tracking-wide">{title}</h1>
-               <span className="text-gray-400 text-[11px] font-medium">Local • {size}</span>
-            </div>
-            <button className="flex size-10 items-center justify-center rounded-full hover:bg-white/10 active:bg-white/20 transition-colors">
-               <span className="material-symbols-outlined text-white" style={{ fontSize: 24 }}>more_horiz</span>
-            </button>
-         </header>
-
-         {/* Main Content */}
-         <main className="relative z-10 flex-1 w-full flex flex-col items-center justify-center pb-24 pt-20 px-6">
-            <div className="relative w-full max-w-sm aspect-[3/4] group">
-               {/* Document Card */}
-               <div className="relative w-full h-full bg-white rounded-lg shadow-2xl overflow-hidden">
-                  {thumbnail ? (
-                     <img src={thumbnail} alt={title} className="w-full h-full object-contain" />
-                  ) : (
-                     <div className="w-full h-full flex items-center justify-center bg-gray-800">
-                        <span className="material-symbols-outlined text-gray-500 text-6xl">description</span>
-                     </div>
-                  )}
-               </div>
-            </div>
-
-            {/* Pagination Dots */}
-            <div className="mt-8 flex flex-row items-center justify-center gap-2.5">
-               <div className="size-2 rounded-full bg-primary"></div>
-               <div className="size-2 rounded-full bg-white/20"></div>
-               <div className="size-2 rounded-full bg-white/20"></div>
-               <div className="size-2 rounded-full bg-white/20"></div>
-            </div>
-         </main>
-
-         {/* Bottom Floating Bar */}
-         <div className="fixed bottom-10 left-0 right-0 z-40 flex justify-center px-6">
-            <div className="bg-[#1e1f2e] border border-white/5 rounded-[2rem] px-6 py-2 flex items-center gap-2 shadow-2xl w-full max-w-xs justify-between">
-               <button className="flex flex-col items-center gap-1 group p-2 min-w-[56px]">
-                  <div className="size-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors">
-                     <span className="material-symbols-outlined text-white" style={{ fontSize: 20 }}>share</span>
-                  </div>
-                  <span className="text-[10px] font-medium text-gray-400">Share</span>
-               </button>
-
-               <button className="flex flex-col items-center gap-1 group p-2 min-w-[56px]">
-                  <div className="size-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors">
-                     <span className="material-symbols-outlined text-white" style={{ fontSize: 20 }}>edit</span>
-                  </div>
-                  <span className="text-[10px] font-medium text-gray-400">Edit</span>
-               </button>
-
-               <button className="flex flex-col items-center gap-1 group p-2 min-w-[56px]">
-                  <div className="size-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors">
-                     <span className="material-symbols-outlined text-white" style={{ fontSize: 20 }}>delete</span>
-                  </div>
-                  <span className="text-[10px] font-medium text-gray-400">Delete</span>
-               </button>
-
-               <button className="flex flex-col items-center gap-1 group p-2 min-w-[56px]">
-                  <div className="size-10 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/30 group-hover:bg-primary-dark transition-colors">
-                     <span className="material-symbols-outlined text-white" style={{ fontSize: 20 }}>ios_share</span>
-                  </div>
-                  <span className="text-[10px] font-medium text-primary">Export</span>
-               </button>
-            </div>
-         </div>
+const ViewerScreen: React.FC<ViewerScreenProps> = ({ onBack, title, size, thumbnail }) => {
+  return (
+    <div className="h-full flex flex-col bg-[#0a0a0f] animate-fade-up fixed inset-0 z-50">
+      
+      {/* Top Bar */}
+      <div className="h-14 border-b border-white/[0.06] bg-[#111118] px-4 flex items-center gap-4">
+        <button onClick={onBack} className="size-8 rounded-lg hover:bg-white/[0.04] flex items-center justify-center text-zinc-400">
+          <span className="material-symbols-outlined">arrow_back</span>
+        </button>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-sm font-semibold text-white truncate">{title}</h2>
+          <p className="text-[10px] text-zinc-500">{size}</p>
+        </div>
       </div>
-   );
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto p-4 flex items-center justify-center">
+        <div className="max-w-2xl w-full bg-white rounded-lg shadow-xl overflow-hidden border border-white/10">
+          {thumbnail ? (
+             <img src={thumbnail} alt={title} className="w-full h-auto object-contain max-h-[75vh]" />
+          ) : (
+            <div className="aspect-[3/4] flex items-center justify-center bg-zinc-900">
+              <span className="material-symbols-outlined text-zinc-700" style={{ fontSize: 64 }}>image_not_supported</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Floating Toolbar */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
+        <div className="bg-[#111118] border border-white/[0.06] rounded-lg px-2 py-1 flex items-center gap-1 shadow-2xl">
+          <ToolBtn icon="download" />
+          <ToolBtn icon="share" />
+          <ToolBtn icon="edit" />
+          <div className="w-[1px] h-4 bg-white/[0.1] mx-1" />
+          <ToolBtn icon="delete" danger />
+        </div>
+      </div>
+    </div>
+  );
 };
+
+const ToolBtn = ({ icon, danger }: { icon: string, danger?: boolean }) => (
+  <button className={`size-8 rounded-md flex items-center justify-center hover:bg-white/[0.04] transition-colors ${danger ? 'text-red-400' : 'text-zinc-400 hover:text-zinc-200'}`}>
+    <span className="material-symbols-outlined" style={{fontSize: 20}}>{icon}</span>
+  </button>
+);
+
+export default ViewerScreen;

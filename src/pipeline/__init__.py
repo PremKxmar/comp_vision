@@ -2,12 +2,14 @@
 Document scanning pipeline components.
 """
 
-from .scanner import DocumentScanner
+from .clean_scanner import CleanDocumentScanner
 from .detector import detect_document_classical
-from .warper import warp_document
+from .lsd_detector import LSDDocumentDetector
+from .grabcut_refiner import GrabCutRefiner
 
 __all__ = [
-    "DocumentScanner",
+    "CleanDocumentScanner",
     "detect_document_classical",
-    "warp_document"
+    "LSDDocumentDetector",
+    "GrabCutRefiner",
 ]

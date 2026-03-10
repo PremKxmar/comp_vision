@@ -1,292 +1,307 @@
-import React, { useState } from 'react';
-import { ScanResult } from '../services/api';
+import React, { useState, useEffect } from 'react';
+import { DocumentItem } from '../types';
 import { getCurrentScan, addDocument, formatDate, getFileSizeString } from '../store';
-import api from '../services/api';
+import { downloadBase64, exportToPdf, base64ToBlob, scanDocument } from '../services/api';
 
 interface ResultScreenProps {
-    onAddPage: () => void;
-    onRetake: () => void;
-    onFinish: () => void;
-    scanResult?: ScanResult | null;
-    scannedPages?: string[]; // All scanned pages for multi-page PDF
+  onAddPage: () => void;
+  onRetake: () => void;
+  onFinish: () => void;
 }
 
-export const ResultScreen: React.FC<ResultScreenProps> = ({ onAddPage, onRetake, onFinish, scanResult, scannedPages = [] }) => {
-    const [sliderPos, setSliderPos] = useState(50);
-    const [isSaving, setIsSaving] = useState(false);
-    const [saved, setSaved] = useState(false);
-    const [docTitle, setDocTitle] = useState(`Scan_${new Date().toISOString().slice(0, 10)}`);
+const ResultScreen: React.FC<ResultScreenProps> = ({ onAddPage, onRetake, onFinish }) => {
+  const [scanImage, setScanImage] = useState<string | null>(null);
+  const [originalImage, setOriginalImage] = useState<string | null>(null);
+  const [confidence, setConfidence] = useState(0);
+  const [processingTime, setProcessingTime] = useState<number | null>(null);
+  const [detectionMethod, setDetectionMethod] = useState<string>('');
+  const [sliderPos, setSliderPos] = useState(50);
+  const [docTitle, setDocTitle] = useState('New Document');
+  const [isSaved, setIsSaved] = useState(false);
+  const [pageCount, setPageCount] = useState(1);
+  const [isEnhanced, setIsEnhanced] = useState(false);
+  const [isReprocessing, setIsReprocessing] = useState(false);
 
-    const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSliderPos(Number(e.target.value));
+  useEffect(() => {
+    const scanState = getCurrentScan();
+    if (scanState) {
+      setScanImage(scanState.result.scan || null);
+      setOriginalImage(scanState.originalImage);
+      setConfidence(scanState.result.confidence ?? 0);
+      setProcessingTime(scanState.result.processing_time_ms ?? null);
+      setDetectionMethod(scanState.result.method ?? '');
+      setDocTitle(`Scan ${formatDate(new Date())}`);
+    }
+  }, []);
+
+  if (!scanImage) return null;
+
+  const handleSave = () => {
+    if (isSaved) return;
+    const newDoc: DocumentItem = {
+      id: Date.now().toString(),
+      title: docTitle,
+      date: formatDate(new Date()),
+      size: getFileSizeString(scanImage),
+      thumbnail: scanImage,
+      type: 'jpg',
+      originalImage: originalImage || undefined,
+      enhancedImage: scanImage,
+      pageCount: pageCount
     };
+    addDocument(newDoc);
+    setIsSaved(true);
+  };
 
-    // Get scan data
-    const currentScan = getCurrentScan();
-    const originalImage = currentScan.originalImage;
-    const scannedImage = scanResult?.scan || currentScan.scannedImage;
-    const confidence = scanResult?.confidence || currentScan.confidence || 0;
+  const handleDownload = () => {
+    downloadBase64(scanImage, `${docTitle}.jpg`);
+  };
 
-    // Total pages count
-    const pageCount = scannedPages.length || (scannedImage ? 1 : 0);
+  const handleExportPdf = async () => {
+    const result = await exportToPdf([scanImage]);
+    if (result.success && result.pdf) {
+      // Download the real PDF from the backend
+      const blob = base64ToBlob(result.pdf);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${docTitle}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } else {
+      alert('PDF export failed: ' + (result.error || 'Unknown error'));
+    }
+  };
 
-    const handleSave = async () => {
-        if (!scannedImage) return;
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: docTitle,
+          text: 'Scanned with ScanPro',
+          url: window.location.href // In real app, would share file
+        });
+      } catch (e) { console.log(e); }
+    } else {
+      handleDownload();
+    }
+  };
 
-        setIsSaving(true);
+  const handleDone = () => {
+    if (!isSaved) handleSave();
+    onFinish();
+  };
 
-        try {
-            // Save to library
-            addDocument({
-                title: `${docTitle}.jpg`,
-                date: formatDate(new Date()),
-                size: getFileSizeString(scannedImage),
-                thumbnail: scannedImage,
-                type: 'jpg'
-            });
+  const handleToggleEnhance = async () => {
+    if (!originalImage || isReprocessing) return;
+    setIsReprocessing(true);
+    const newEnhanced = !isEnhanced;
+    try {
+      const result = await scanDocument(originalImage, {
+        remove_shadows: true,
+        enhance: newEnhanced,
+        output_format: 'jpeg',
+      });
+      if (result.success && result.scan) {
+        setScanImage(result.scan);
+        setIsEnhanced(newEnhanced);
+        setConfidence(result.confidence ?? confidence);
+        setProcessingTime(result.processing_time_ms ?? processingTime);
+        setDetectionMethod(result.method ?? detectionMethod);
+      }
+    } catch (e) {
+      console.error('Re-process failed:', e);
+    }
+    setIsReprocessing(false);
+  };
 
-            // Also download to device
-            api.downloadBase64(scannedImage, `${docTitle}.jpg`);
+  return (
+    <div className="h-full flex flex-col lg:flex-row gap-6 animate-fade-up">
+      
+      {/* Left: Comparison Slider */}
+      <div className="w-full lg:w-1/2 flex flex-col">
+        <div className="rounded-lg border border-white/[0.06] overflow-hidden relative aspect-[3/4] max-h-[75vh] bg-zinc-950 select-none group">
+          
+          {/* Enhanced (Background) */}
+          <div 
+            className="absolute inset-0 bg-contain bg-center bg-no-repeat"
+            style={{ backgroundImage: `url(${scanImage})` }}
+          />
 
-            setSaved(true);
-            setTimeout(() => setSaved(false), 2000);
-        } catch (e) {
-            console.error('Save failed:', e);
-        }
+          {/* Original (Foreground, Clipped) */}
+          <div 
+            className="absolute inset-0 overflow-hidden"
+            style={{ width: `${sliderPos}%` }}
+          >
+            <div 
+              className="absolute inset-0 bg-contain bg-center bg-no-repeat w-full h-full brightness-90 contrast-[0.85]"
+              style={{ backgroundImage: `url(${originalImage})` }}
+            />
+            {/* Divider Line */}
+            <div className="absolute top-0 bottom-0 right-0 w-[2px] bg-white/30" />
+          </div>
 
-        setIsSaving(false);
-    };
-
-    const handleShare = async () => {
-        if (!scannedImage) return;
-
-        try {
-            const blob = api.base64ToBlob(scannedImage);
-            const file = new File([blob], `${docTitle}.jpg`, { type: 'image/jpeg' });
-
-            if (navigator.share) {
-                await navigator.share({
-                    files: [file],
-                    title: docTitle,
-                });
-            } else {
-                // Fallback - download
-                api.downloadBase64(scannedImage, `${docTitle}.jpg`);
-            }
-        } catch (e) {
-            console.log('Share failed', e);
-        }
-    };
-
-    const handleExportPdf = async () => {
-        // Use all scanned pages if available, otherwise use current scan
-        const pagesToExport = scannedPages.length > 0 ? scannedPages : (scannedImage ? [scannedImage] : []);
-
-        console.log('[ResultScreen] handleExportPdf called');
-        console.log('[ResultScreen] scannedPages:', scannedPages.length);
-        console.log('[ResultScreen] scannedImage exists:', !!scannedImage);
-        console.log('[ResultScreen] pagesToExport:', pagesToExport.length);
-
-        if (pagesToExport.length === 0) {
-            console.error('[ResultScreen] No pages to export!');
-            return;
-        }
-
-        setIsSaving(true);
-        try {
-            console.log('[ResultScreen] Calling api.exportToPdf...');
-            const result = await api.exportToPdf(pagesToExport, { page_size: 'A4' });
-            console.log('[ResultScreen] PDF result:', result);
-
-            if (result.success && result.pdf) {
-                // Save PDF to library
-                addDocument({
-                    title: `${docTitle}.pdf`,
-                    date: formatDate(new Date()),
-                    size: getFileSizeString(result.pdf),
-                    thumbnail: pagesToExport[0], // Use first page as thumbnail
-                    type: 'pdf',
-                    pageCount: pagesToExport.length
-                });
-
-                // Download
-                console.log('[ResultScreen] Downloading PDF...');
-                api.downloadBase64(result.pdf, `${docTitle}.pdf`);
-                setSaved(true);
-                setTimeout(() => setSaved(false), 2000);
-            } else {
-                console.error('PDF export failed:', result.error);
-                alert('PDF export failed: ' + (result.error || 'Unknown error'));
-            }
-        } catch (e) {
-            console.error('PDF export failed', e);
-            alert('PDF export error: ' + e);
-        }
-        setIsSaving(false);
-    };
-
-    const handleFinish = () => {
-        // Auto-save before finishing if not already saved
-        if (!saved && scannedImage) {
-            addDocument({
-                title: `${docTitle}.jpg`,
-                date: formatDate(new Date()),
-                size: getFileSizeString(scannedImage),
-                thumbnail: scannedImage,
-                type: 'jpg'
-            });
-        }
-        onFinish();
-    };
-
-    return (
-        <div className="bg-background-dark font-display antialiased h-screen w-full flex flex-col overflow-hidden text-white">
-
-            {/* Header */}
-            <header className="flex items-center justify-between p-5 pt-12 z-20">
-                <button onClick={onRetake} className="flex size-10 items-center justify-center rounded-full hover:bg-white/10 transition-colors">
-                    <span className="material-symbols-outlined text-white" style={{ fontSize: 24 }}>arrow_back</span>
-                </button>
-                <div className="flex-1 text-center">
-                    <input
-                        type="text"
-                        value={docTitle}
-                        onChange={(e) => setDocTitle(e.target.value)}
-                        className="bg-transparent text-white text-[17px] font-semibold tracking-wide text-center border-none outline-none focus:bg-white/10 rounded-lg px-2 py-1"
-                        placeholder="Document name"
-                    />
-                    {pageCount > 0 && (
-                        <p className="text-gray-400 text-xs mt-1">{pageCount} page{pageCount > 1 ? 's' : ''}</p>
-                    )}
-                </div>
-                <button className="flex size-10 items-center justify-center rounded-full hover:bg-white/10 transition-colors">
-                    <span className="material-symbols-outlined text-white" style={{ fontSize: 24 }}>tune</span>
-                </button>
-            </header>
-
-            {/* Comparison Area */}
-            <main className="flex-1 flex flex-col items-center justify-center w-full relative z-10 px-6 pb-6">
-                <div className="group relative w-full h-full max-h-[65vh] rounded-2xl shadow-[0_20px_50px_-20px_rgba(0,0,0,0.5)] overflow-hidden select-none bg-surface-dark border border-white/5">
-
-                    {/* Labels */}
-                    <div className="absolute top-4 left-4 z-20">
-                        <span className="bg-black/40 backdrop-blur-md text-white/90 text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider border border-white/10">Original</span>
-                    </div>
-                    <div className="absolute top-4 right-4 z-20">
-                        <span className="bg-primary/90 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider shadow-lg shadow-primary/20">Enhanced</span>
-                    </div>
-
-                    {/* Enhanced Image (Background) */}
-                    <div
-                        className="absolute inset-0 bg-contain bg-center bg-no-repeat bg-white"
-                        style={{
-                            backgroundImage: scannedImage ? `url('${scannedImage}')` : undefined,
-                            backgroundColor: scannedImage ? 'white' : '#333'
-                        }}
-                    ></div>
-
-                    {/* Original Image (Clipped) */}
-                    <div
-                        className="absolute inset-y-0 left-0 overflow-hidden bg-white/5"
-                        style={{ width: `${sliderPos}%` }}
-                    >
-                        <div
-                            className="absolute inset-0 h-full w-full bg-contain bg-center bg-no-repeat origin-left filter brightness-90 sepia-[0.1] contrast-75"
-                            style={{
-                                width: `${10000 / sliderPos}%`,
-                                backgroundImage: originalImage ? `url('${originalImage}')` : undefined
-                            }}
-                        ></div>
-                        <div className="absolute inset-y-0 right-0 w-0.5 bg-white/20 shadow-[0_0_10px_rgba(0,0,0,0.5)]"></div>
-                    </div>
-
-                    {/* Drag Handle */}
-                    <div
-                        className="absolute inset-y-0 -ml-[18px] w-9 flex items-center justify-center z-20 pointer-events-none"
-                        style={{ left: `${sliderPos}%` }}
-                    >
-                        <div className="size-9 bg-white rounded-full shadow-[0_2px_10px_rgba(0,0,0,0.4)] flex items-center justify-center">
-                            <span className="material-symbols-outlined text-primary" style={{ fontSize: 20 }}>code</span>
-                        </div>
-                    </div>
-
-                    {/* Range Input */}
-                    <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={sliderPos}
-                        onChange={handleSliderChange}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-30"
-                    />
-
-                    {/* Badges */}
-                    <div className="absolute bottom-4 right-4 z-30 pointer-events-none flex flex-col gap-2 items-end">
-                        <div className="flex items-center gap-x-1.5 rounded-full bg-[#1e1f2e] border border-white/5 pl-2 pr-3 py-1.5 shadow-lg">
-                            <span className="material-symbols-outlined text-green-400 filled" style={{ fontSize: 16 }}>check_circle</span>
-                            <p className="text-white text-[11px] font-medium leading-none">Shadow Removed</p>
-                        </div>
-                        {confidence > 0 && (
-                            <div className="flex items-center gap-x-1.5 rounded-full bg-[#1e1f2e] border border-white/5 pl-2 pr-3 py-1.5 shadow-lg">
-                                <span className="material-symbols-outlined text-blue-400" style={{ fontSize: 16 }}>verified</span>
-                                <p className="text-white text-[11px] font-medium leading-none">{Math.round(confidence * 100)}% Confidence</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-                <p className="mt-6 text-gray-500 text-[13px] font-medium">Slide to compare</p>
-            </main>
-
-            {/* Actions */}
-            <div className="w-full pb-8 z-20 flex flex-col gap-8">
-                <div className="flex justify-center items-start gap-8">
-                    <button onClick={handleShare} className="group flex flex-col items-center gap-2">
-                        <div className="size-[3.5rem] rounded-full bg-surface-highlight border border-white/5 flex items-center justify-center group-active:scale-95 transition-transform">
-                            <span className="material-symbols-outlined text-white" style={{ fontSize: 24 }}>ios_share</span>
-                        </div>
-                        <span className="text-[11px] font-medium text-gray-400">Share</span>
-                    </button>
-                    <button onClick={handleSave} disabled={isSaving} className="group flex flex-col items-center gap-2">
-                        <div className={`size-[3.5rem] rounded-full ${saved ? 'bg-green-500/20' : 'bg-surface-highlight'} border border-white/5 flex items-center justify-center group-active:scale-95 transition-transform`}>
-                            {isSaving ? (
-                                <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
-                            ) : (
-                                <span className={`material-symbols-outlined ${saved ? 'text-green-400' : 'text-white'}`} style={{ fontSize: 24 }}>
-                                    {saved ? 'check' : 'save'}
-                                </span>
-                            )}
-                        </div>
-                        <span className="text-[11px] font-medium text-gray-400">{saved ? 'Saved!' : 'Save'}</span>
-                    </button>
-                    <button onClick={handleExportPdf} disabled={isSaving} className="group flex flex-col items-center gap-2">
-                        <div className="size-[3.5rem] rounded-full bg-surface-highlight border border-white/5 flex items-center justify-center group-active:scale-95 transition-transform">
-                            {isSaving ? (
-                                <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
-                            ) : (
-                                <span className="material-symbols-outlined text-white" style={{ fontSize: 24 }}>picture_as_pdf</span>
-                            )}
-                        </div>
-                        <span className="text-[11px] font-medium text-gray-400">PDF</span>
-                    </button>
-                    <button onClick={onRetake} className="group flex flex-col items-center gap-2">
-                        <div className="size-[3.5rem] rounded-full bg-surface-highlight border border-white/5 flex items-center justify-center group-active:scale-95 transition-transform">
-                            <span className="material-symbols-outlined text-white" style={{ fontSize: 24 }}>replay</span>
-                        </div>
-                        <span className="text-[11px] font-medium text-gray-400">Retake</span>
-                    </button>
-                </div>
-
-                <div className="px-5 flex gap-3">
-                    <button onClick={handleFinish} className="flex-1 h-14 bg-surface-highlight border border-white/10 rounded-2xl flex items-center justify-center gap-2 text-white font-bold text-[15px] active:scale-[0.98] transition-all">
-                        <span className="material-symbols-outlined" style={{ fontSize: 22 }}>check</span>
-                        Done
-                    </button>
-                    <button onClick={onAddPage} className="flex-1 h-14 bg-primary rounded-2xl flex items-center justify-center gap-2 text-white font-bold text-[15px] shadow-lg shadow-primary/25 active:scale-[0.98] transition-all hover:bg-primary-dark">
-                        <span className="material-symbols-outlined" style={{ fontSize: 22 }}>add_a_photo</span>
-                        Add Page
-                    </button>
-                </div>
+          {/* Handle */}
+          <div 
+            className="absolute top-1/2 -translate-y-1/2 z-30 flex items-center justify-center pointer-events-none"
+            style={{ left: `${sliderPos}%`, transform: `translate(-50%, -50%)` }}
+          >
+            <div className="size-7 bg-white rounded-full shadow-md flex items-center justify-center">
+              <span className="material-symbols-outlined text-zinc-700 text-[14px]">code</span>
             </div>
+          </div>
+
+          {/* Labels */}
+          <div className="absolute top-3 left-3 px-2 py-1 rounded bg-black/50 text-zinc-300 text-[10px] font-bold uppercase tracking-wider border border-white/[0.06]">
+            Original
+          </div>
+          <div className="absolute top-3 right-3 px-2 py-1 rounded bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-wider border border-white/[0.06] shadow-lg">
+            Enhanced
+          </div>
+
+          {/* Interactive Range Input */}
+          <input 
+            type="range" 
+            min="0" 
+            max="100" 
+            value={sliderPos} 
+            onChange={(e) => setSliderPos(Number(e.target.value))}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-20"
+          />
         </div>
-    );
+        <p className="text-center text-xs text-zinc-500 mt-2 lg:hidden">Drag slider to compare</p>
+      </div>
+
+      {/* Right: Details & Actions */}
+      <div className="w-full lg:w-1/2 flex flex-col">
+        {/* Title Input */}
+        <input 
+          value={docTitle} 
+          onChange={(e) => setDocTitle(e.target.value)}
+          className="bg-transparent text-white text-lg font-semibold border-none outline-none w-full focus:bg-white/[0.04] rounded px-1 -mx-1 mb-2 transition-colors"
+        />
+
+        {/* Stats */}
+        <div className="flex flex-wrap gap-4 mb-4">
+          <Stat icon="verified" text={`Confidence: ${confidence}%`} />
+          <Stat icon="timer" text={`Processing: ${processingTime ?? '—'}ms`} />
+          <Stat icon="description" text={`Pages: ${pageCount}`} />
+          {detectionMethod && <Stat icon="psychology" text={`Method: ${detectionMethod === 'dl' ? 'Deep Learning' : detectionMethod === 'classical' ? 'Classical CV' : detectionMethod}`} />}
+        </div>
+
+        {/* Badges */}
+        <div className="mb-6 flex flex-wrap gap-2">
+           <span className="bg-emerald-500/10 text-emerald-400 text-xs px-2 py-1 rounded-md inline-flex items-center gap-1 border border-emerald-500/10">
+              <span className="material-symbols-outlined text-[14px]">wb_sunny</span>
+              Shadow Removed
+           </span>
+           {detectionMethod === 'dl' && (
+             <span className="bg-indigo-500/10 text-indigo-400 text-xs px-2 py-1 rounded-md inline-flex items-center gap-1 border border-indigo-500/10">
+                <span className="material-symbols-outlined text-[14px]">neurology</span>
+                AI Detection
+             </span>
+           )}
+           {detectionMethod === 'classical' && (
+             <span className="bg-cyan-500/10 text-cyan-400 text-xs px-2 py-1 rounded-md inline-flex items-center gap-1 border border-cyan-500/10">
+                <span className="material-symbols-outlined text-[14px]">visibility</span>
+                Classical CV
+             </span>
+           )}
+        </div>
+
+        {/* Enhance Toggle */}
+        <div className="mb-4">
+          <button
+            onClick={handleToggleEnhance}
+            disabled={isReprocessing}
+            className={`w-full h-10 px-4 rounded-lg border flex items-center justify-between text-sm transition-all
+              ${isEnhanced
+                ? 'bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/15'
+                : 'bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04] hover:border-white/[0.1]'}
+              ${isReprocessing ? 'opacity-60 cursor-wait' : ''}
+            `}
+          >
+            <div className="flex items-center gap-3">
+              <span className={`material-symbols-outlined text-[18px] ${isEnhanced ? 'text-amber-400' : 'text-zinc-400'}`}>
+                auto_fix_high
+              </span>
+              <span className={isEnhanced ? 'text-amber-300' : 'text-zinc-300'}>
+                {isReprocessing ? 'Reprocessing…' : 'Enhance Colors'}
+              </span>
+            </div>
+            <div className={`w-9 h-5 rounded-full transition-colors relative ${isEnhanced ? 'bg-amber-500' : 'bg-zinc-700'}`}>
+              <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${isEnhanced ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </div>
+          </button>
+          <p className="text-[10px] text-zinc-600 mt-1 ml-1">
+            {isEnhanced ? 'Enhanced: brighter paper, balanced contrast' : 'Off: original scanned colors, no processing'}
+          </p>
+        </div>
+
+        <div className="border-t border-white/[0.06] my-4" />
+
+        {/* Actions Stack */}
+        <div className="flex flex-col gap-3">
+          <ActionButton 
+            icon={isSaved ? "check" : "save"} 
+            label={isSaved ? "Saved" : "Save to Library"} 
+            onClick={handleSave}
+            active={isSaved}
+            color={isSaved ? 'text-emerald-400' : 'text-zinc-300'}
+          />
+          <ActionButton icon="picture_as_pdf" label="Export as PDF" onClick={handleExportPdf} />
+          <ActionButton icon="share" label="Share" onClick={handleShare} />
+          <ActionButton icon="download" label="Download Image" onClick={handleDownload} />
+        </div>
+
+        <div className="border-t border-white/[0.06] my-4" />
+
+        <div className="flex gap-3 mb-3">
+          <button 
+            onClick={onRetake}
+            className="flex-1 border border-white/[0.06] h-9 rounded-lg text-sm text-zinc-400 hover:bg-white/[0.04] transition-colors"
+          >
+            Retake
+          </button>
+          <button 
+            onClick={() => { setPageCount(p => p + 1); onAddPage(); }}
+            className="flex-1 bg-indigo-600 hover:bg-indigo-500 h-9 rounded-lg text-sm text-white font-medium transition-colors"
+          >
+            Add Page
+          </button>
+        </div>
+
+        <button 
+          onClick={handleDone}
+          className="w-full bg-white/[0.06] border border-white/[0.06] hover:bg-white/[0.08] h-10 rounded-lg text-sm text-white font-medium transition-colors"
+        >
+          Done
+        </button>
+
+      </div>
+    </div>
+  );
 };
+
+const Stat = ({ icon, text }: { icon: string, text: string }) => (
+  <div className="flex items-center gap-1 text-xs text-zinc-500">
+    <span className="material-symbols-outlined text-[14px]">{icon}</span>
+    <span>{text}</span>
+  </div>
+);
+
+const ActionButton = ({ icon, label, onClick, active, color }: any) => (
+  <button 
+    onClick={onClick}
+    className={`w-full h-9 px-4 rounded-lg border flex items-center gap-3 text-sm transition-all
+      ${active ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04] hover:border-white/[0.1]'}
+    `}
+  >
+    <span className={`material-symbols-outlined text-[18px] ${color || 'text-zinc-400'}`}>{icon}</span>
+    <span className={color || 'text-zinc-300'}>{label}</span>
+  </button>
+);
+
+export default ResultScreen;

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Flask REST API for Document Scanner
 
 This provides a REST API that can be consumed by mobile apps
@@ -32,6 +32,7 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 
 from src.pipeline.clean_scanner import CleanDocumentScanner
+from src.preprocessing.shadow_removal import ShadowRemover, enhance_document
 from src.utils.export import export_to_pdf
 
 # Initialize Flask app
@@ -40,14 +41,23 @@ CORS(app)  # Enable CORS for mobile apps
 
 # Initialize scanner (lazy load)
 _scanner = None
+_shadow_remover = None
 
 
 def get_scanner() -> CleanDocumentScanner:
-    """Get or create scanner instance."""
+    """Get or create classical CV scanner instance."""
     global _scanner
     if _scanner is None:
         _scanner = CleanDocumentScanner()
     return _scanner
+
+
+def get_shadow_remover() -> ShadowRemover:
+    """Get or create shadow remover instance."""
+    global _shadow_remover
+    if _shadow_remover is None:
+        _shadow_remover = ShadowRemover()
+    return _shadow_remover
 
 
 def decode_base64_image(base64_string: str) -> np.ndarray:
@@ -101,11 +111,11 @@ def health_check():
 @app.route('/api/info', methods=['GET'])
 def api_info():
     """Get API information and capabilities."""
-    scanner = get_scanner()
     return jsonify({
         'name': 'Shadow-Robust Document Scanner API',
         'version': '1.0.0',
-        'device': str(scanner.device),
+        'device': 'cpu',
+        'scanner_type': 'CleanDocumentScanner (Classical CV)',
         'capabilities': [
             'document_detection',
             'shadow_removal',
@@ -163,42 +173,67 @@ def scan_document():
                 'error': 'Failed to decode image'
             }), 400
         
-        # Get options for CleanDocumentScanner
+        # Get options
         options = data.get('options', {})
-        # Mode: 'color' (default), 'grayscale', 'document' (B&W)
         mode = options.get('mode', 'color')
         enhance = options.get('enhance', True)
         output_format = options.get('output_format', 'jpeg')
+        remove_shadows = options.get('remove_shadows', True)
         
-        # Process with clean scanner
-        scanner = get_scanner()
         start_time = time.time()
+        scanner = get_scanner()
         
-        result = scanner.scan(
-            image,
-            mode=mode,
-            enhance=enhance
-        )
+        # Step 1: Detect corners on ORIGINAL image (no shadow removal —
+        #         shadow removal destroys contrast between doc & background)
+        t0 = time.time()
+        corners, confidence = scanner._detect_document(image)
+        print(f"[TIMING] Detection: {(time.time()-t0)*1000:.0f}ms")
+        
+        if corners is not None:
+            # Step 2: Perspective warp on original image
+            t0 = time.time()
+            scan = scanner._perspective_transform(image, corners)
+            print(f"[TIMING] Warp: {(time.time()-t0)*1000:.0f}ms")
+            
+            # Step 3: Shadow removal on warped document only (smaller, faster, correct)
+            if remove_shadows:
+                try:
+                    t0 = time.time()
+                    scan = get_shadow_remover().remove(scan)
+                    print(f"[TIMING] Shadow removal: {(time.time()-t0)*1000:.0f}ms")
+                except Exception:
+                    pass
+            
+            # Step 4: Enhancement
+            if enhance:
+                t0 = time.time()
+                scan = scanner._enhance_image(scan, mode)
+                print(f"[TIMING] Enhancement: {(time.time()-t0)*1000:.0f}ms")
+            
+            corners_list = corners.tolist()
+        else:
+            # No document detected — enhance the whole image
+            scan = scanner._enhance_image(image, mode) if enhance else image.copy()
+            corners_list = None
         
         processing_time = (time.time() - start_time) * 1000
+        print(f"[TIMING] Total: {processing_time:.0f}ms")
         
         # Prepare response
         response = {
             'success': True,
-            'confidence': float(result['confidence']),
-            'processing_time_ms': round(processing_time, 2)
+            'confidence': float(confidence) if corners is not None else 0.0,
+            'processing_time_ms': round(processing_time, 2),
+            'method': 'classical_cv',
         }
         
-        if result['corners'] is not None:
-            response['corners'] = result['corners']
-        else:
-            response['corners'] = None
+        response['corners'] = corners_list
         
-        if result['scan'] is not None:
-            response['scan'] = encode_image_base64(result['scan'], output_format)
+        if corners is not None:
+            response['scan'] = encode_image_base64(scan, output_format)
         else:
-            response['scan'] = None
-            response['message'] = result.get('message', 'Document not detected')
+            response['scan'] = encode_image_base64(scan, output_format) if scan is not None else None
+            response['message'] = 'Document not detected, returning enhanced image'
         
         return jsonify(response)
     
@@ -245,9 +280,9 @@ def detect_document():
                 'error': 'Failed to decode image'
             }), 400
         
-        # Process (scan but only return detection info)
+        # Process with classical CV scanner
         scanner = get_scanner()
-        result = scanner.scan(image, remove_shadows=False, enhance=False)
+        result = scanner.scan(image, mode='color', enhance=False)
         
         response = {
             'success': True,
@@ -256,13 +291,7 @@ def detect_document():
         }
         
         if result['corners'] is not None:
-            response['corners'] = result['corners'].tolist()
-        
-        if 'mask' in result and result['mask'] is not None:
-            # Optionally include mask
-            include_mask = data.get('include_mask', False)
-            if include_mask:
-                response['mask'] = encode_image_base64(result['mask'], 'png')
+            response['corners'] = result['corners']
         
         return jsonify(response)
     
@@ -416,12 +445,7 @@ if __name__ == '__main__':
     parser.add_argument('--host', type=str, default='0.0.0.0')
     parser.add_argument('--port', type=int, default=5000)
     parser.add_argument('--debug', action='store_true')
-    parser.add_argument('--model', type=str, default=None)
-    
     args = parser.parse_args()
-    
-    if args.model:
-        os.environ['MODEL_PATH'] = args.model
     
     print("=" * 60)
     print("  Document Scanner API")

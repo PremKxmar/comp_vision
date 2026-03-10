@@ -6,46 +6,37 @@ interface BottomNavProps {
   onNavigate: (screen: Screen) => void;
 }
 
-export const BottomNav: React.FC<BottomNavProps> = ({ currentScreen, onNavigate }) => {
+const BottomNav: React.FC<BottomNavProps> = ({ currentScreen, onNavigate }) => {
+  const items = [
+    { id: 'library', label: 'Documents', icon: 'folder' },
+    { id: 'camera', label: 'Scanner', icon: 'document_scanner' },
+    { id: 'tools', label: 'Tools', icon: 'build' },
+    { id: 'settings', label: 'Settings', icon: 'settings' },
+  ];
+
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-50">
-      <div className="mx-5 mb-5 h-20 rounded-[2.5rem] glass-panel flex items-center justify-around px-2 shadow-2xl bg-surface-dark/90 backdrop-blur-xl border border-white/10">
-        <button 
-          onClick={() => onNavigate('library')}
-          className={`flex flex-col items-center justify-center gap-1 w-16 group transition-all duration-300 ${currentScreen === 'library' ? 'scale-110' : 'opacity-60 hover:opacity-100'}`}
-        >
-          <div className={`${currentScreen === 'library' ? 'bg-primary/20 shadow-[0_0_15px_rgba(92,107,250,0.3)]' : ''} p-2 rounded-full mb-0.5 transition-colors`}>
-            <span className={`material-symbols-outlined text-[24px] ${currentScreen === 'library' ? 'text-primary font-variation-settings-\'FILL\'-1' : 'text-white'}`}>
-              grid_view
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-14 bg-[#111118] border-t border-white/[0.06] flex items-center justify-around px-2 z-50 safe-area-bottom">
+      {items.map((item) => {
+        const isActive = currentScreen === item.id || (currentScreen === 'result' && item.id === 'camera');
+        return (
+          <button
+            key={item.id}
+            onClick={() => onNavigate(item.id as Screen)}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 h-full"
+          >
+            <span 
+              className={`material-symbols-outlined text-[24px] ${isActive ? 'text-indigo-400' : 'text-zinc-500'}`}
+            >
+              {item.icon}
             </span>
-          </div>
-          <span className={`text-[10px] font-bold ${currentScreen === 'library' ? 'text-white' : 'text-white/60'}`}>Library</span>
-        </button>
-
-        <button 
-          onClick={() => onNavigate('tools')}
-          className={`flex flex-col items-center justify-center gap-1 w-16 group transition-all duration-300 ${currentScreen === 'tools' ? 'scale-110' : 'opacity-60 hover:opacity-100'}`}
-        >
-          <div className={`${currentScreen === 'tools' ? 'bg-primary/20 shadow-[0_0_15px_rgba(92,107,250,0.3)]' : ''} p-2 rounded-full mb-0.5 transition-colors`}>
-            <span className={`material-symbols-outlined text-[24px] ${currentScreen === 'tools' ? 'text-primary font-variation-settings-\'FILL\'-1' : 'text-white'}`}>
-              build
+            <span className={`text-[10px] font-medium ${isActive ? 'text-indigo-400' : 'text-zinc-600'}`}>
+              {item.label}
             </span>
-          </div>
-          <span className={`text-[10px] font-bold ${currentScreen === 'tools' ? 'text-white' : 'text-white/60'}`}>Tools</span>
-        </button>
-
-        <button 
-          onClick={() => onNavigate('settings')}
-          className={`flex flex-col items-center justify-center gap-1 w-16 group transition-all duration-300 ${currentScreen === 'settings' ? 'scale-110' : 'opacity-60 hover:opacity-100'}`}
-        >
-          <div className={`${currentScreen === 'settings' ? 'bg-primary/20 shadow-[0_0_15px_rgba(92,107,250,0.3)]' : ''} p-2 rounded-full mb-0.5 transition-colors`}>
-            <span className={`material-symbols-outlined text-[24px] ${currentScreen === 'settings' ? 'text-primary font-variation-settings-\'FILL\'-1' : 'text-white'}`}>
-              settings
-            </span>
-          </div>
-          <span className={`text-[10px] font-bold ${currentScreen === 'settings' ? 'text-white' : 'text-white/60'}`}>Settings</span>
-        </button>
-      </div>
-    </div>
+          </button>
+        );
+      })}
+    </nav>
   );
 };
+
+export default BottomNav;

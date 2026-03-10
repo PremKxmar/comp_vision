@@ -84,6 +84,14 @@ class ShadowRemover:
         4. Enhance with CLAHE
         5. Reconstruct color image
         """
+        # Downscale for speed if image is large (retinex kernels are very slow on large images)
+        h, w = image.shape[:2]
+        max_process_dim = 1500
+        process_scale = 1.0
+        if max(h, w) > max_process_dim:
+            process_scale = max_process_dim / max(h, w)
+            image = cv2.resize(image, None, fx=process_scale, fy=process_scale, interpolation=cv2.INTER_AREA)
+
         # Convert to LAB color space
         lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
         l_channel, a_channel, b_channel = cv2.split(lab)
@@ -112,7 +120,11 @@ class ShadowRemover:
         
         # Convert back to BGR
         result = cv2.cvtColor(lab_enhanced, cv2.COLOR_LAB2BGR)
-        
+
+        # Upscale back if we downscaled
+        if process_scale < 1.0:
+            result = cv2.resize(result, (w, h), interpolation=cv2.INTER_LINEAR)
+
         return result
     
     def _detect_shadows(self, l_channel: np.ndarray) -> np.ndarray:
@@ -165,38 +177,72 @@ class ShadowRemover:
         kernel_size: int
     ) -> np.ndarray:
         """
-        Normalize illumination using gradient-domain processing.
-        
-        This approximates solving the Poisson equation for smooth
-        illumination correction.
+        Normalize illumination using Multi-Scale Retinex (MSR).
+
+        Uses three Gaussian scales to capture shadows at different
+        spatial frequencies:
+          - Small sigma (15): captures fine/local shadows (pen shadows, wrinkles)
+          - Medium sigma (80): captures medium shadows (hand shadows, folds)
+          - Large sigma (250): captures broad illumination gradients (lighting)
+
+        The three single-scale Retinex outputs are averaged, producing
+        a robust illumination-invariant reflectance estimate that is
+        then re-illuminated with uniform lighting and blended with the
+        original in non-shadow regions.
         """
-        # Estimate illumination using large-scale blur
-        illumination = cv2.GaussianBlur(l_channel, (kernel_size, kernel_size), 0)
-        
-        # Compute reflectance (image / illumination)
-        # Add small epsilon to avoid division by zero
+        l_float = l_channel.astype(np.float32)
         eps = 1e-6
-        illumination_safe = np.maximum(illumination.astype(np.float32), eps)
-        reflectance = l_channel.astype(np.float32) / illumination_safe
-        
-        # Re-illuminate with uniform lighting
-        mean_illumination = np.mean(illumination)
-        normalized = reflectance * mean_illumination
-        
-        # Blend with original in non-shadow regions for natural look
+
+        # --- Multi-Scale Retinex ---
+        sigmas = [15, 80, 250]
+        retinex_sum = np.zeros_like(l_float)
+
+        for sigma in sigmas:
+            # Kernel size must be odd and >= 3; use 6*sigma+1 to cover 3-sigma
+            ksize = int(6 * sigma + 1)
+            if ksize % 2 == 0:
+                ksize += 1
+            ksize = max(ksize, 3)
+
+            illumination = cv2.GaussianBlur(l_float, (ksize, ksize), sigma)
+            illumination_safe = np.maximum(illumination, eps)
+
+            # Single-Scale Retinex: log(image) - log(illumination)
+            ssr = np.log(l_float + eps) - np.log(illumination_safe)
+            retinex_sum += ssr
+
+        # Average across scales
+        msr = retinex_sum / len(sigmas)
+
+        # Convert from log-domain back to intensity domain
+        # Stretch MSR output to [0, 255] using percentile-based linear stretch
+        p_low, p_high = np.percentile(msr, [1, 99])
+        if p_high - p_low < eps:
+            normalized = l_float.copy()
+        else:
+            msr_stretched = (msr - p_low) / (p_high - p_low)
+            msr_stretched = np.clip(msr_stretched, 0.0, 1.0)
+
+            # Re-illuminate: map back to original mean brightness
+            mean_brightness = np.mean(l_float)
+            # Scale so that the stretched reflectance sits around the
+            # original image's mean brightness (preserves look)
+            normalized = msr_stretched * mean_brightness * 2.0
+            # Gentle clamp - slight overshoot is fine, CLAHE follows
+            normalized = np.clip(normalized, 0, 255)
+
+        # --- Blend with original in non-shadow regions ---
         shadow_mask_float = shadow_mask.astype(np.float32) / 255.0
         shadow_mask_blurred = cv2.GaussianBlur(shadow_mask_float, (21, 21), 0)
-        
+
         result = (
-            shadow_mask_blurred * normalized + 
-            (1 - shadow_mask_blurred) * l_channel.astype(np.float32)
+            shadow_mask_blurred * normalized +
+            (1 - shadow_mask_blurred) * l_float
         )
-        
-        # Clip and convert back to uint8
+
         result = np.clip(result, 0, 255).astype(np.uint8)
-        
         return result
-    
+
     def _detect_skin(self, image: np.ndarray) -> float:
         """
         Detect skin regions in the image.
